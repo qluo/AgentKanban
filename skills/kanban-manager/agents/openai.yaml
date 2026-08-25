@@ -1,0 +1,4 @@
+interface:
+  display_name: "Kanban Manager"
+  short_description: "Manage local agent handoffs on Agent Kanban"
+  default_prompt: "Use $kanban-manager to inspect the current local handoff and continue the recorded task."
