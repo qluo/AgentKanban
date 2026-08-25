@@ -22,8 +22,11 @@ function initialize(db: Database.Database) {
       number INTEGER PRIMARY KEY AUTOINCREMENT,
       id TEXT NOT NULL UNIQUE,
       project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+      feature_id TEXT,
+      created_by TEXT NOT NULL DEFAULT 'human' CHECK (created_by IN ('human', 'agent')),
+      cancellation_reason TEXT,
       title TEXT NOT NULL,
-      column_id TEXT NOT NULL CHECK (column_id IN ('backlog', 'ready', 'in-progress', 'verification', 'done')),
+      column_id TEXT NOT NULL CHECK (column_id IN ('backlog', 'ready', 'in-progress', 'verification', 'done', 'canceled')),
       position INTEGER NOT NULL DEFAULT 0,
       task TEXT NOT NULL,
       progress TEXT NOT NULL,
@@ -42,7 +45,97 @@ function initialize(db: Database.Database) {
 
     CREATE INDEX IF NOT EXISTS idx_tasks_project_column_position
     ON tasks(project_id, column_id, position);
+
   `);
+
+  migrateTasks(db);
+  db.exec(`
+    CREATE INDEX IF NOT EXISTS idx_tasks_project_feature
+    ON tasks(project_id, feature_id);
+  `);
+}
+
+function taskColumns(db: Database.Database) {
+  return new Set(
+    (db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>).map(
+      ({ name }) => name,
+    ),
+  );
+}
+
+function migrateTasks(db: Database.Database) {
+  const columns = taskColumns(db);
+  const schema = (
+    db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as
+      | { sql: string }
+      | undefined
+  )?.sql ?? '';
+  const requiresRebuild =
+    !columns.has('feature_id') ||
+    !columns.has('created_by') ||
+    !columns.has('cancellation_reason') ||
+    !schema.includes("'canceled'");
+
+  if (!requiresRebuild) return;
+
+  db.exec('PRAGMA foreign_keys = OFF');
+  try {
+    const migrate = db.transaction(() => {
+      db.exec(`
+        CREATE TABLE tasks_migrating (
+          number INTEGER PRIMARY KEY AUTOINCREMENT,
+          id TEXT NOT NULL UNIQUE,
+          project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+          feature_id TEXT,
+          created_by TEXT NOT NULL DEFAULT 'human' CHECK (created_by IN ('human', 'agent')),
+          cancellation_reason TEXT,
+          title TEXT NOT NULL,
+          column_id TEXT NOT NULL CHECK (column_id IN ('backlog', 'ready', 'in-progress', 'verification', 'done', 'canceled')),
+          position INTEGER NOT NULL DEFAULT 0,
+          task TEXT NOT NULL,
+          progress TEXT NOT NULL,
+          decisions TEXT NOT NULL,
+          verification_status TEXT NOT NULL CHECK (verification_status IN ('not_run', 'passed', 'failed', 'partial')),
+          verification_notes TEXT NOT NULL,
+          checkpoint_state TEXT NOT NULL DEFAULT 'not_captured' CHECK (checkpoint_state IN ('not_captured', 'captured', 'not_git', 'error')),
+          git_branch TEXT,
+          git_sha TEXT,
+          git_dirty INTEGER,
+          checkpoint_error TEXT,
+          checkpoint_captured_at TEXT,
+          created_at TEXT NOT NULL,
+          updated_at TEXT NOT NULL
+        );
+      `);
+      db.exec(`
+        INSERT INTO tasks_migrating (
+          number, id, project_id, feature_id, created_by, cancellation_reason,
+          title, column_id, position, task, progress, decisions,
+          verification_status, verification_notes, checkpoint_state, git_branch,
+          git_sha, git_dirty, checkpoint_error, checkpoint_captured_at, created_at, updated_at
+        ) SELECT
+          number, id, project_id,
+          ${columns.has('feature_id') ? 'feature_id' : 'NULL'},
+          ${columns.has('created_by') ? "created_by" : "'human'"},
+          ${columns.has('cancellation_reason') ? 'cancellation_reason' : 'NULL'},
+          title, column_id, position, task, progress, decisions,
+          verification_status, verification_notes, checkpoint_state, git_branch,
+          git_sha, git_dirty, checkpoint_error, checkpoint_captured_at, created_at, updated_at
+        FROM tasks;
+      `);
+      db.exec('DROP TABLE tasks');
+      db.exec('ALTER TABLE tasks_migrating RENAME TO tasks');
+      db.exec(`
+        CREATE INDEX IF NOT EXISTS idx_tasks_project_column_position
+        ON tasks(project_id, column_id, position);
+        CREATE INDEX IF NOT EXISTS idx_tasks_project_feature
+        ON tasks(project_id, feature_id);
+      `);
+    });
+    migrate();
+  } finally {
+    db.exec('PRAGMA foreign_keys = ON');
+  }
 }
 
 export function createDatabase(databasePath = defaultDatabasePath) {

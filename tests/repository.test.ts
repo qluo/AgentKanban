@@ -6,6 +6,7 @@ import { createDatabase } from '@/src/lib/db';
 import {
   createProject,
   createTask,
+  completeTask,
   listProjects,
   listTasks,
   moveTask,
@@ -81,7 +82,41 @@ describe('repository', () => {
     expect(moveTask(db, task.id, 'verification').column).toBe('verification');
     expect(() => moveTask(db, task.id, 'done')).toThrow();
     setTaskCheckpoint(db, task.id, { state: 'not_git' });
-    expect(moveTask(db, task.id, 'done').column).toBe('done');
+    expect(completeTask(db, task.id).column).toBe('done');
+    db.close();
+  });
+
+  it('uses persisted task ownership when clearing progress', () => {
+    const root = temporaryRoot();
+    const repoPath = path.join(root, 'repo');
+    mkdirSync(repoPath);
+    const db = createDatabase(':memory:');
+    const project = createProject(db, { name: 'Ownership', repoPath });
+    const humanTask = createTask(db, {
+      projectId: project.id,
+      title: 'Human task',
+      task: 'Allow progress to be cleared.',
+      progress: 'A temporary next action.',
+      decisions: 'Human-owned.',
+      verificationNotes: 'Not run yet.',
+    });
+    const agentTask = createTask(db, {
+      projectId: project.id,
+      createdBy: 'agent',
+      title: 'Agent task',
+      task: 'Keep a concrete next action.',
+      progress: 'Run the next check.',
+      decisions: 'Agent-owned.',
+      verificationNotes: 'Not run yet.',
+    });
+
+    expect(updateTask(db, humanTask.id, { progress: ' \n ' }).progress).toBe('');
+    expect(() => updateTask(db, agentTask.id, { progress: '' })).toThrow(
+      'progress is required',
+    );
+    expect(listTasks(db, project.id).find((task) => task.id === agentTask.id)?.progress).toBe(
+      'Run the next check.',
+    );
     db.close();
   });
 });

@@ -3,6 +3,31 @@
 import type { Project, Task, TaskColumn, VerificationStatus } from '../src/lib/types';
 
 const baseUrl = process.env.KANBAN_URL ?? 'http://127.0.0.1:3210';
+const AGENT_MOVABLE_COLUMNS = [
+  'backlog',
+  'ready',
+  'in-progress',
+  'verification',
+] as const satisfies readonly TaskColumn[];
+
+type Feature = {
+  index: number;
+  id: string | null;
+  title: string;
+  status?: string;
+  [key: string]: unknown;
+};
+
+type FeaturesDocument = {
+  exists: boolean;
+  path: string;
+  markdown: string | null;
+  features: Feature[];
+};
+
+type FeaturesResponse = {
+  features: FeaturesDocument;
+};
 
 function parseArgs(values: string[]) {
   const positional: string[] = [];
@@ -73,17 +98,46 @@ function print(value: unknown, json: boolean) {
   console.log(JSON.stringify(value, null, 2));
 }
 
+function printFeatures(value: FeaturesDocument, json: boolean) {
+  if (json) {
+    print(value, true);
+    return;
+  }
+  if (value.features.length === 0) {
+    console.log('No features found.');
+    return;
+  }
+  for (const feature of value.features) {
+    const identifier = feature.id ?? `unassigned@${feature.index}`;
+    console.log(`${identifier}\t${feature.status ?? 'active'}\t${feature.title}`);
+  }
+}
+
+function featureMatches(feature: Feature, selector: string) {
+  return feature.id === selector || String(feature.index) === selector;
+}
+
+function requiredFeatureIndex(value: string | undefined) {
+  if (!value || !/^\d+$/.test(value)) {
+    throw new Error('Feature ID assignment requires a zero-based feature index.');
+  }
+  return Number(value);
+}
+
 function help() {
   console.log(`Agent Kanban CLI
 
 Usage:
   kanban project list [--json]
-  kanban project add --name <name> --path <directory> [--json]
+  kanban project add --name <name> [--path <directory>] [--json]
+  kanban feature list --project <project-id> [--json]
+  kanban feature show --project <project-id> <feature-id|index> [--json]
+  kanban feature assign-id --project <project-id> <feature-index> --id <FEAT-001> --approved [--json]
   kanban task list --project <project-id> [--json]
   kanban task show <task-id> [--json]
-  kanban task create --project <id> --title <text> --task <text> --progress <text> --decisions <text> --verification-notes <text> [--json]
+  kanban task create --project <id> --feature <feature-id> --title <text> --task <text> --progress <text> --decisions <text> --verification-notes <text> [--json]
   kanban task update <task-id> [--title <text>] [--task <text>] [--progress <text>] [--decisions <text>] [--verification-status <status>] [--verification-notes <text>] [--json]
-  kanban task move <task-id> <backlog|ready|in-progress|verification|done> [--json]
+  kanban task move <task-id> <backlog|ready|in-progress|verification> [--json]
   kanban task checkpoint <task-id> [--json]
 
 Environment:
@@ -107,11 +161,56 @@ async function main() {
   }
 
   if (entity === 'project' && action === 'add') {
+    const repoPath = flags.path;
+    if (repoPath === true) throw new Error('Missing value for optional flag --path.');
+    const payload: { name: string; repoPath?: string } = {
+      name: required(flags, 'name'),
+    };
+    if (typeof repoPath === 'string') payload.repoPath = repoPath;
     const { project } = await request<{ project: Project }>('/api/projects', {
       method: 'POST',
-      body: JSON.stringify({ name: required(flags, 'name'), repoPath: required(flags, 'path') }),
+      body: JSON.stringify(payload),
     });
     print(project, json);
+    return;
+  }
+
+  if (entity === 'feature' && action === 'list') {
+    const projectId = required(flags, 'project');
+    const { features } = await request<FeaturesResponse>(
+      `/api/projects/${projectId}/features`,
+    );
+    printFeatures(features, json);
+    return;
+  }
+
+  if (entity === 'feature' && action === 'show') {
+    const projectId = required(flags, 'project');
+    const selector = positional[0];
+    if (!selector) throw new Error('Missing feature id or index.');
+    const { features } = await request<FeaturesResponse>(
+      `/api/projects/${projectId}/features`,
+    );
+    const feature = features.features.find((item) => featureMatches(item, selector));
+    if (!feature) throw new Error(`Feature ${selector} was not found in this project.`);
+    print(feature, json);
+    return;
+  }
+
+  if (entity === 'feature' && action === 'assign-id') {
+    const projectId = required(flags, 'project');
+    const featureIndex = requiredFeatureIndex(positional[0]);
+    if (flags.approved !== true) {
+      throw new Error('Feature ID assignment requires explicit human approval via --approved.');
+    }
+    const { feature } = await request<{ feature: Feature }>(
+      `/api/projects/${projectId}/features/${featureIndex}/assign-id`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ id: required(flags, 'id'), approved: true }),
+      },
+    );
+    print(feature, json);
     return;
   }
 
@@ -138,6 +237,8 @@ async function main() {
       decisions: required(flags, 'decisions'),
       verificationNotes: required(flags, 'verification-notes'),
       verificationStatus: (flags['verification-status'] ?? 'not_run') as VerificationStatus,
+      featureId: required(flags, 'feature'),
+      createdBy: 'agent' as const,
     };
     const projectId = required(flags, 'project');
     const { task } = await request<{ task: Task }>(`/api/projects/${projectId}/tasks`, {
@@ -174,9 +275,24 @@ async function main() {
   if (entity === 'task' && action === 'move') {
     const [taskId, column] = positional;
     if (!taskId || !column) throw new Error('Usage: kanban task move <task-id> <column>.');
+    if (
+      !AGENT_MOVABLE_COLUMNS.includes(
+        column as (typeof AGENT_MOVABLE_COLUMNS)[number],
+      )
+    ) {
+      if (column === 'done') {
+        throw new Error('Only human browser review can move a task to Done.');
+      }
+      if (column === 'canceled') {
+        throw new Error('Only feature cancellation can move a task to Canceled.');
+      }
+      throw new Error(
+        `Task movement is limited to ${AGENT_MOVABLE_COLUMNS.join(', ')}.`,
+      );
+    }
     const { task } = await request<{ task: Task }>(`/api/tasks/${taskId}/move`, {
       method: 'POST',
-      body: JSON.stringify({ column: column as TaskColumn }),
+      body: JSON.stringify({ column }),
     });
     print(task, json);
     return;

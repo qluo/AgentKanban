@@ -3,6 +3,7 @@ import type { Task } from '@/src/lib/types';
 import {
   ValidationError,
   validateCreateTaskInput,
+  validateUpdateTaskInput,
   validateTransition,
 } from '@/src/lib/validation';
 
@@ -11,6 +12,9 @@ const baseTask: Task = {
   number: 1,
   reference: 'KAN-001',
   projectId: 'project-1',
+  featureId: null,
+  createdBy: 'human',
+  cancellationReason: null,
   title: 'Test task',
   column: 'backlog',
   position: 0,
@@ -54,6 +58,53 @@ describe('task validation', () => {
         verificationNotes: 'Not run yet: implementation is incomplete.',
       }),
     ).toMatchObject({ verificationStatus: 'not_run', column: 'backlog' });
+  });
+
+  it('normalizes omitted, empty, and whitespace human progress to empty text', () => {
+    expect(
+      validateCreateTaskInput({
+        projectId: 'project-1',
+        title: 'Human scratch task',
+        task: 'Capture an idea.',
+        decisions: 'No decisions yet.',
+        verificationNotes: 'Not run yet.',
+      }),
+    ).toMatchObject({ createdBy: 'human', progress: '' });
+
+    for (const progress of ['', '   \n\t']) {
+      expect(
+        validateCreateTaskInput({
+          projectId: 'project-1',
+          title: 'Human scratch task',
+          task: 'Capture an idea.',
+          progress,
+          decisions: 'No decisions yet.',
+          verificationNotes: 'Not run yet.',
+        }),
+      ).toMatchObject({ createdBy: 'human', progress: '' });
+    }
+  });
+
+  it('requires non-empty progress for an agent-created task', () => {
+    expect(() =>
+      validateCreateTaskInput({
+        projectId: 'project-1',
+        createdBy: 'agent',
+        title: 'Agent task',
+        task: 'Implement the requirement.',
+        decisions: 'No decisions yet.',
+        verificationNotes: 'Not run yet.',
+      }),
+    ).toThrow('progress is required');
+  });
+
+  it('allows only human-created tasks to clear progress on update', () => {
+    expect(validateUpdateTaskInput({ progress: '   ' }, 'human')).toEqual({
+      progress: '',
+    });
+    expect(() => validateUpdateTaskInput({ progress: '' }, 'agent')).toThrow(
+      'progress is required',
+    );
   });
 
   it('blocks Verification until a result is recorded', () => {

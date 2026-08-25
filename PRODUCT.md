@@ -12,11 +12,11 @@ The primary user is a human supervising Codex agents across local software repos
 
 ## Product Purpose
 
-Provide a durable local Kanban board that lets the human see task state at a glance and lets both human and agents preserve enough context to hand work back and forth without losing progress, decisions, verification evidence, or repository state.
+Provide a durable, feature-led local Kanban board that lets the human control requirements and completion while agents preserve enough task context to hand work back and forth without losing progress, decisions, verification evidence, or repository state.
 
 ## Positioning
 
-Each card combines board position with an explicit continuity record for agent handoffs, while keeping written progress separate from workflow status.
+`FEATURES.md` is the requirements source of truth. Each feature owns its linked implementation cards, and every card combines board position with an explicit continuity record for agent handoffs while keeping written progress separate from workflow status.
 
 ## Operating Context
 
@@ -24,10 +24,13 @@ The app runs only on the user's machine. A typical installation manages 1–10 r
 
 ## Capabilities and Constraints
 
-- Five workflow columns: Backlog, Ready, In Progress, Verification, and Done.
+- Six workflow columns: Backlog, Ready, In Progress, Verification, Done, and Canceled. Canceled follows Done and stays hidden until the human exposes it.
 - Desktop drag-and-drop is required in v1.
 - Keyboard and explicit move controls provide an accessible alternative; touch drag-and-drop is outside v1.
-- Every task records task/acceptance criteria, progress/next action, decisions, verification notes/status, and a Git checkpoint.
+- A project starts with human-provided `FEATURES.md`; the browser can save it to the project directory and sync its features for browsing and management. Agents never edit the file directly.
+- Agents groom one feature at a time in document order: clarify ambiguity, propose an ID and complete task set, wait for human approval, then create linked agent-owned tasks through the app.
+- Every task records task/acceptance criteria, decisions, verification notes/status, and a Git checkpoint. Progress/next action is optional for a human-created task, but required for agent-created tasks.
+- Agents may move tasks through Verification only. A human browser review is the sole path into Done. Human feature cancellation moves all of its tasks to Canceled with a recorded reason.
 - Git integration is read-only and never commits, resets, or modifies a repository.
 - The server binds only to `127.0.0.1`; persistent data remains local.
 - V1 is single-user and assumes one active writer at a time.

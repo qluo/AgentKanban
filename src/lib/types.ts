@@ -4,6 +4,7 @@ export const TASK_COLUMNS = [
   'in-progress',
   'verification',
   'done',
+  'canceled',
 ] as const;
 
 export type TaskColumn = (typeof TASK_COLUMNS)[number];
@@ -36,6 +37,9 @@ export interface Task {
   number: number;
   reference: string;
   projectId: string;
+  featureId: string | null;
+  createdBy: 'human' | 'agent';
+  cancellationReason: string | null;
   title: string;
   column: TaskColumn;
   position: number;
@@ -56,15 +60,17 @@ export interface Task {
 
 export interface CreateProjectInput {
   name: string;
-  repoPath: string;
+  repoPath?: string;
 }
 
 export interface CreateTaskInput {
   projectId: string;
+  featureId?: string;
+  createdBy?: 'human' | 'agent';
   title: string;
   column?: TaskColumn;
   task: string;
-  progress: string;
+  progress?: string;
   decisions: string;
   verificationStatus?: VerificationStatus;
   verificationNotes: string;
@@ -81,3 +87,27 @@ export type UpdateTaskInput = Partial<
     | 'verificationNotes'
   >
 >;
+
+export interface TaskSummary {
+  id: string;
+  reference: string;
+  title: string;
+  column: TaskColumn;
+  featureId: string | null;
+}
+
+export interface FeatureMetadata {
+  status?: 'active' | 'canceled';
+  cancellationReason?: string;
+  canceledAt?: string;
+}
+
+export interface Feature {
+  index: number;
+  id: string | null;
+  title: string;
+  body: string;
+  metadata: FeatureMetadata;
+  status: 'active' | 'canceled';
+  tasks: TaskSummary[];
+}

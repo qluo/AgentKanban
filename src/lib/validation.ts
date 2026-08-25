@@ -27,11 +27,27 @@ function requiredText(value: unknown, label: string, issues: Record<string, stri
   return value.trim();
 }
 
+function humanOptionalText(
+  value: unknown,
+  label: string,
+  issues: Record<string, string>,
+) {
+  if (value === undefined || value === null) return '';
+  if (typeof value !== 'string') {
+    issues[label] = `${label} must be text.`;
+    return '';
+  }
+  return value.trim();
+}
+
 export function validateProjectInput(input: unknown): CreateProjectInput {
   const value = (input ?? {}) as Record<string, unknown>;
   const issues: Record<string, string> = {};
   const name = requiredText(value.name, 'name', issues);
-  const repoPath = requiredText(value.repoPath, 'repoPath', issues);
+  const repoPath =
+    value.repoPath === undefined || value.repoPath === null || value.repoPath === ''
+      ? undefined
+      : requiredText(value.repoPath, 'repoPath', issues);
   if (Object.keys(issues).length > 0) throw new ValidationError(issues);
   return { name, repoPath };
 }
@@ -42,7 +58,14 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
   const projectId = requiredText(value.projectId, 'projectId', issues);
   const title = requiredText(value.title, 'title', issues);
   const task = requiredText(value.task, 'task', issues);
-  const progress = requiredText(value.progress, 'progress', issues);
+  const createdBy = (value.createdBy ?? 'human') as CreateTaskInput['createdBy'];
+  if (createdBy !== 'human' && createdBy !== 'agent') {
+    issues.createdBy = 'createdBy must be human or agent.';
+  }
+  const progress =
+    createdBy === 'human'
+      ? humanOptionalText(value.progress, 'progress', issues)
+      : requiredText(value.progress, 'progress', issues);
   const decisions = requiredText(value.decisions, 'decisions', issues);
   const verificationNotes = requiredText(
     value.verificationNotes,
@@ -52,8 +75,15 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
   const column = (value.column ?? 'backlog') as TaskColumn;
   const verificationStatus = (value.verificationStatus ??
     'not_run') as VerificationStatus;
+  const featureId =
+    value.featureId === undefined || value.featureId === null || value.featureId === ''
+      ? undefined
+      : requiredText(value.featureId, 'featureId', issues);
 
   if (!TASK_COLUMNS.includes(column)) issues.column = 'Column is invalid.';
+  if (column === 'done' || column === 'canceled') {
+    issues.column = 'Tasks cannot be created directly in Done or Canceled.';
+  }
   if (!VERIFICATION_STATUSES.includes(verificationStatus)) {
     issues.verificationStatus = 'Verification status is invalid.';
   }
@@ -61,6 +91,8 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
 
   return {
     projectId,
+    featureId,
+    createdBy,
     title,
     column,
     task,
@@ -71,7 +103,10 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
   };
 }
 
-export function validateUpdateTaskInput(input: unknown): UpdateTaskInput {
+export function validateUpdateTaskInput(
+  input: unknown,
+  createdBy: Task['createdBy'],
+): UpdateTaskInput {
   const value = (input ?? {}) as Record<string, unknown>;
   const allowed = [
     'title',
@@ -93,6 +128,8 @@ export function validateUpdateTaskInput(input: unknown): UpdateTaskInput {
       } else {
         result[field] = status;
       }
+    } else if (field === 'progress' && createdBy === 'human') {
+      result[field] = humanOptionalText(value[field], field, issues);
     } else {
       result[field] = requiredText(value[field], field, issues);
     }

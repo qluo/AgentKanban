@@ -1,7 +1,9 @@
 import type Database from 'better-sqlite3';
-import { realpathSync, statSync } from 'node:fs';
+import { mkdirSync, realpathSync, statSync } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { homedir } from 'node:os';
 import path from 'node:path';
+import { getFeatureById } from './features';
 import type {
   CheckpointState,
   CreateProjectInput,
@@ -49,6 +51,9 @@ function mapTask(row: Row): Task {
     number,
     reference: `KAN-${String(number).padStart(3, '0')}`,
     projectId: row.project_id as string,
+    featureId: (row.feature_id as string | null) ?? null,
+    createdBy: row.created_by as Task['createdBy'],
+    cancellationReason: (row.cancellation_reason as string | null) ?? null,
     title: row.title as string,
     column: row.column_id as TaskColumn,
     position: row.position as number,
@@ -85,9 +90,11 @@ export function getProject(db: Database.Database, id: string) {
 
 export function createProject(db: Database.Database, rawInput: unknown) {
   const input: CreateProjectInput = validateProjectInput(rawInput);
-  const resolvedPath = path.resolve(input.repoPath);
+  const shouldCreatePath = !input.repoPath;
+  const resolvedPath = path.resolve(input.repoPath ?? suggestProjectPath(input.name));
   let repoPath: string;
   try {
+    if (shouldCreatePath) mkdirSync(resolvedPath, { recursive: true });
     if (!statSync(resolvedPath).isDirectory()) {
       throw new Error('not a directory');
     }
@@ -144,7 +151,13 @@ export function getTask(db: Database.Database, id: string) {
 
 export function createTask(db: Database.Database, rawInput: unknown) {
   const input: CreateTaskInput = validateCreateTaskInput(rawInput);
-  getProject(db, input.projectId);
+  const project = getProject(db, input.projectId);
+  if (input.featureId) {
+    const feature = getFeatureById(project.repoPath, input.featureId);
+    if (feature.status !== 'active') {
+      throw new ValidationError({ featureId: 'Tasks can only link to active features.' });
+    }
+  }
   const timestamp = now();
   const id = randomUUID();
   const nextPosition = (
@@ -158,10 +171,10 @@ export function createTask(db: Database.Database, rawInput: unknown) {
 
   db.prepare(
     `INSERT INTO tasks (
-      id, project_id, title, column_id, position, task, progress, decisions,
+      id, project_id, feature_id, created_by, title, column_id, position, task, progress, decisions,
       verification_status, verification_notes, checkpoint_state, created_at, updated_at
     ) VALUES (
-      @id, @projectId, @title, @column, @position, @task, @progress, @decisions,
+      @id, @projectId, @featureId, @createdBy, @title, @column, @position, @task, @progress, @decisions,
       @verificationStatus, @verificationNotes, 'not_captured', @createdAt, @updatedAt
     )`,
   ).run({
@@ -180,8 +193,11 @@ export function updateTask(
   id: string,
   rawInput: unknown,
 ) {
-  const input: UpdateTaskInput = validateUpdateTaskInput(rawInput);
-  getTask(db, id);
+  const existingTask = getTask(db, id);
+  const input: UpdateTaskInput = validateUpdateTaskInput(
+    rawInput,
+    existingTask.createdBy,
+  );
   const fields: string[] = [];
   const params: Record<string, unknown> = { id, updatedAt: now() };
   const columns: Record<keyof UpdateTaskInput, string> = {
@@ -209,6 +225,11 @@ export function moveTask(
   id: string,
   destination: TaskColumn,
 ) {
+  if (destination === 'done' || destination === 'canceled') {
+    throw new ValidationError({
+      column: 'Done and Canceled require their dedicated human or feature workflow.',
+    });
+  }
   const transaction = db.transaction(() => {
     const task = getTask(db, id);
     validateTransition(task, destination);
@@ -226,6 +247,91 @@ export function moveTask(
     return getTask(db, id);
   });
   return transaction();
+}
+
+export function completeTask(db: Database.Database, id: string) {
+  const task = getTask(db, id);
+  if (task.column !== 'verification') {
+    throw new ValidationError({ column: 'Only tasks in Verification can be completed.' });
+  }
+  validateTransition(task, 'done');
+  const position = (
+    db
+      .prepare(
+        `SELECT COALESCE(MAX(position), -1) + 1 AS position
+         FROM tasks WHERE project_id = ? AND column_id = 'done'`,
+      )
+      .get(task.projectId) as { position: number }
+  ).position;
+  db.prepare(
+    'UPDATE tasks SET column_id = ?, position = ?, updated_at = ? WHERE id = ?',
+  ).run('done', position, now(), id);
+  return getTask(db, id);
+}
+
+export function suggestProjectPath(name: string, homeDirectory = homedir()) {
+  const slug = name
+    .normalize('NFKD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '') || 'project';
+  return path.join(homeDirectory, 'projects', slug);
+}
+
+export function listTaskSummariesForFeature(
+  db: Database.Database,
+  projectId: string,
+  featureId: string,
+) {
+  return (
+    db
+      .prepare(
+        `SELECT id, number, title, column_id, feature_id
+         FROM tasks WHERE project_id = ? AND feature_id = ? ORDER BY number`,
+      )
+      .all(projectId, featureId) as Row[]
+  ).map((row) => ({
+    id: row.id as string,
+    reference: `KAN-${String(row.number).padStart(3, '0')}`,
+    title: row.title as string,
+    column: row.column_id as TaskColumn,
+    featureId: (row.feature_id as string | null) ?? null,
+  }));
+}
+
+export function cancelTasksForFeature(
+  db: Database.Database,
+  projectId: string,
+  featureId: string,
+  reason: string,
+) {
+  const tasks = db
+    .prepare(
+      `SELECT id, column_id FROM tasks WHERE project_id = ? AND feature_id = ? ORDER BY number`,
+    )
+    .all(projectId, featureId) as Array<{ id: string; column_id: TaskColumn }>;
+  let position = (
+    db
+      .prepare(
+        `SELECT COALESCE(MAX(position), -1) + 1 AS position
+         FROM tasks WHERE project_id = ? AND column_id = 'canceled'`,
+      )
+      .get(projectId) as { position: number }
+  ).position;
+  const cancel = db.prepare(
+    `UPDATE tasks SET column_id = 'canceled', position = ?, cancellation_reason = ?, updated_at = ? WHERE id = ?`,
+  );
+  const recordReason = db.prepare(
+    'UPDATE tasks SET cancellation_reason = ?, updated_at = ? WHERE id = ?',
+  );
+  for (const task of tasks) {
+    if (task.column_id === 'canceled') {
+      recordReason.run(reason, now(), task.id);
+    } else {
+      cancel.run(position++, reason, now(), task.id);
+    }
+  }
 }
 
 export function deleteTask(db: Database.Database, id: string) {
