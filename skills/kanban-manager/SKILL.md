@@ -5,10 +5,12 @@ description: Manage coding-task continuity through the local Agent Kanban app. U
 
 # Kanban Manager
 
-Use the installed Agent Kanban CLI. The local server must be running.
+Use the installed Agent Kanban CLI. The local server must be running. Replace
+`<agent-kanban-directory>` with the path to the user's local Agent Kanban
+checkout.
 
 ```bash
-npm --prefix "/Users/ddev/Documents/Codex/kanban-board" run kanban -- <command>
+npm --prefix "<agent-kanban-directory>" run kanban -- <command>
 ```
 
 Set `KANBAN_URL` only when the user runs the server at a non-default local URL. Never expose the app beyond a loopback address.
