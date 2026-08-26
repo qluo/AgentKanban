@@ -16,6 +16,8 @@ file, and asks the Tech Lead to begin.
 - Groom one feature at a time in document order; clarify scope with the human,
   propose its ID and complete task plan, await approval, then create and link
   all tasks before continuing to the next feature.
+- Complete this grooming cycle for every existing feature before delegating any
+  development work; never pause feature grooming to wait for implementation.
 - Move Backlog → Ready, delegate Ready cards to Implementors and Validation
   cards to Validators, return failed Validation → Ready, and reopen Done →
   Ready only at human request.
