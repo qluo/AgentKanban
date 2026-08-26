@@ -13,6 +13,9 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { getDatabase } from '@/src/lib/db';
 import { getTask, setTaskCheckpoint, updateTask } from '@/src/lib/repository';
 import * as projectsRoute from '@/app/api/projects/route';
+import * as projectExportRoute from '@/app/api/projects/[projectId]/export/route';
+import * as projectImportRoute from '@/app/api/projects/import/route';
+import * as projectImportPreviewRoute from '@/app/api/projects/import/preview/route';
 import * as featuresFileRoute from '@/app/api/projects/[projectId]/features-file/route';
 import * as featuresRoute from '@/app/api/projects/[projectId]/features/route';
 import * as featureRoute from '@/app/api/projects/[projectId]/features/[featureIndex]/route';
@@ -52,6 +55,83 @@ afterEach(() => {
 });
 
 describe('feature-led HTTP API', () => {
+  it('exports, previews, and imports a project migration', async () => {
+    const root = mkdtempSync(path.join(os.tmpdir(), 'agent-kanban-api-migrate-'));
+    temporaryRoots.push(root);
+    const sourcePath = path.join(root, 'source');
+    const destinationPath = path.join(root, 'destination');
+    process.env.KANBAN_DB_PATH = path.join(root, 'kanban.sqlite');
+
+    const createdResponse = await projectsRoute.POST(
+      localRequest('http://127.0.0.1:3210/api/projects', {
+        method: 'POST',
+        body: JSON.stringify({ name: 'Migrating API', repoPath: sourcePath }),
+      }),
+    );
+    const { project } = (await createdResponse.json()) as {
+      project: { id: string };
+    };
+    await featuresFileRoute.PUT(
+      localRequest(
+        `http://127.0.0.1:3210/api/projects/${project.id}/features-file`,
+        {
+          method: 'PUT',
+          body: JSON.stringify({
+            markdown: '## [FEAT-001] Portable feature\n\nMove it.\n',
+          }),
+        },
+      ),
+      { params: Promise.resolve({ projectId: project.id }) },
+    );
+
+    const exported = await projectExportRoute.GET(
+      localRequest(
+        `http://127.0.0.1:3210/api/projects/${project.id}/export`,
+      ),
+      { params: Promise.resolve({ projectId: project.id }) },
+    );
+    expect(exported.status).toBe(200);
+    expect(exported.headers.get('content-type')).toContain(
+      'application/x-ndjson',
+    );
+    const jsonl = await exported.text();
+
+    const previewed = await projectImportPreviewRoute.POST(
+      localRequest('http://127.0.0.1:3210/api/projects/import/preview', {
+        method: 'POST',
+        body: JSON.stringify({ jsonl, repoPath: destinationPath }),
+      }),
+    );
+    expect(previewed.status).toBe(200);
+    const previewBody = (await previewed.json()) as {
+      preview: { destinationFeaturesVersion: string };
+    };
+    expect(previewBody).toEqual({
+      preview: expect.objectContaining({
+        featureCount: 1,
+        taskCount: 0,
+        featuresConflict: false,
+      }),
+    });
+
+    const imported = await projectImportRoute.POST(
+      localRequest('http://127.0.0.1:3210/api/projects/import', {
+        method: 'POST',
+        body: JSON.stringify({
+          jsonl,
+          repoPath: destinationPath,
+          featuresChoice: 'imported',
+          destinationFeaturesVersion:
+            previewBody.preview.destinationFeaturesVersion,
+        }),
+      }),
+    );
+    expect(imported.status).toBe(201);
+    expect(readFileSync(path.join(destinationPath, 'FEATURES.md'), 'utf8')).toContain(
+      'Portable feature',
+    );
+  });
+
   it('requires both a human project name and local directory path', async () => {
     const response = await projectsRoute.POST(
       localRequest('http://127.0.0.1:3210/api/projects', {

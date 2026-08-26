@@ -37,6 +37,7 @@ export interface Task {
   featureId: string | null;
   createdBy: 'human' | 'agent';
   cancellationReason: string | null;
+  pullRequestUrl: string | null;
   title: string;
   column: TaskColumn;
   position: number;
@@ -71,6 +72,7 @@ export interface CreateTaskInput {
   decisions: string;
   verificationStatus?: VerificationStatus;
   verificationNotes: string;
+  pullRequestUrl?: string;
 }
 
 export type UpdateTaskInput = Partial<
@@ -83,7 +85,7 @@ export type UpdateTaskInput = Partial<
     | 'verificationStatus'
     | 'verificationNotes'
   >
->;
+> & { pullRequestUrl?: string | null };
 
 export interface TaskSummary {
   id: string;

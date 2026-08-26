@@ -153,9 +153,10 @@ Usage:
   kanban feature assign-id --project <project-id> <feature-index> --id <FEAT-001> --approved [--json]
   kanban task list --project <project-id> [--json]
   kanban task show <task-id> [--json]
-  kanban task create --project <id> --feature <feature-id> --title <text> --task <text> --progress <text> --decisions <text> --verification-notes <text> [--json]
-  kanban task update <task-id> [--title <text>] [--task <text>] [--progress <text>] [--decisions <text>] [--verification-status <status>] [--verification-notes <text>] [--json]
+  kanban task create --project <id> --feature <feature-id> --title <text> --task <text> --progress <text> --decisions <text> --verification-notes <text> [--pull-request-url <url>] [--json]
+  kanban task update <task-id> [--title <text>] [--task <text>] [--progress <text>] [--decisions <text>] [--verification-status <status>] [--verification-notes <text>] [--pull-request-url <url>] [--json]
   kanban task move <task-id> <backlog|ready|in-progress|verification> [--json]
+  kanban task complete <task-id> [--json]
   kanban task checkpoint <task-id> [--json]
 
 Environment:
@@ -265,6 +266,9 @@ async function main() {
         'not_run') as VerificationStatus,
       featureId: required(flags, 'feature'),
       createdBy: 'agent' as const,
+      ...(typeof flags['pull-request-url'] === 'string'
+        ? { pullRequestUrl: flags['pull-request-url'] }
+        : {}),
     };
     const projectId = required(flags, 'project');
     const { task } = await request<{ task: Task }>(
@@ -288,6 +292,7 @@ async function main() {
       decisions: 'decisions',
       'verification-status': 'verificationStatus',
       'verification-notes': 'verificationNotes',
+      'pull-request-url': 'pullRequestUrl',
     };
     const payload: Record<string, string> = {};
     for (const [flag, field] of Object.entries(mapping)) {
@@ -312,7 +317,7 @@ async function main() {
       )
     ) {
       if (column === 'done') {
-        throw new Error('Only human browser review can move a task to Done.');
+        throw new Error('Use task complete after independent validation.');
       }
       if (column === 'canceled') {
         throw new Error(
@@ -329,6 +334,17 @@ async function main() {
         method: 'POST',
         body: JSON.stringify({ column }),
       },
+    );
+    print(task, json);
+    return;
+  }
+
+  if (entity === 'task' && action === 'complete') {
+    const taskId = positional[0];
+    if (!taskId) throw new Error('Missing task id.');
+    const { task } = await request<{ task: Task }>(
+      `/api/tasks/${taskId}/complete`,
+      { method: 'POST' },
     );
     print(task, json);
     return;

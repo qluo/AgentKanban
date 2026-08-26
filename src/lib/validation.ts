@@ -44,6 +44,28 @@ function humanOptionalText(
   return value.trim();
 }
 
+function optionalHttpUrl(
+  value: unknown,
+  label: string,
+  issues: Record<string, string>,
+) {
+  if (value === undefined || value === null || value === '') return undefined;
+  if (typeof value !== 'string') {
+    issues[label] = `${label} must be a URL.`;
+    return undefined;
+  }
+  const normalized = value.trim();
+  try {
+    const url = new URL(normalized);
+    if (url.protocol !== 'http:' && url.protocol !== 'https:')
+      throw new Error();
+    return normalized;
+  } catch {
+    issues[label] = `${label} must be an http or https URL.`;
+    return undefined;
+  }
+}
+
 export function validateProjectInput(input: unknown): CreateProjectInput {
   const value = (input ?? {}) as Record<string, unknown>;
   const issues: Record<string, string> = {};
@@ -83,6 +105,11 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
     value.featureId === ''
       ? undefined
       : requiredText(value.featureId, 'featureId', issues);
+  const pullRequestUrl = optionalHttpUrl(
+    value.pullRequestUrl,
+    'pullRequestUrl',
+    issues,
+  );
 
   if (!TASK_COLUMNS.includes(column)) issues.column = 'Column is invalid.';
   if (column === 'done' || column === 'canceled') {
@@ -104,6 +131,7 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
     decisions,
     verificationStatus,
     verificationNotes,
+    pullRequestUrl,
   };
 }
 
@@ -119,13 +147,19 @@ export function validateUpdateTaskInput(
     'decisions',
     'verificationStatus',
     'verificationNotes',
+    'pullRequestUrl',
   ] as const;
   const result: UpdateTaskInput = {};
   const issues: Record<string, string> = {};
 
   for (const field of allowed) {
     if (!(field in value)) continue;
-    if (field === 'verificationStatus') {
+    if (field === 'pullRequestUrl') {
+      result[field] =
+        value[field] === null || value[field] === ''
+          ? null
+          : optionalHttpUrl(value[field], field, issues);
+    } else if (field === 'verificationStatus') {
       const status = value[field] as VerificationStatus;
       if (!VERIFICATION_STATUSES.includes(status)) {
         issues[field] = 'Validation status is invalid.';

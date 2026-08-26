@@ -86,6 +86,10 @@ function parseFeatures(markdown: string): ParsedFeature[] {
   return features;
 }
 
+export function parseFeaturesDocument(markdown: string) {
+  return parseFeatures(markdown).map(publicFeature);
+}
+
 function publicFeature(feature: ParsedFeature): Feature {
   return {
     index: feature.index,

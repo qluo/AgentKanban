@@ -79,6 +79,7 @@ describe('repository', () => {
       progress: 'Restart the connection next.',
       decisions: 'Use SQLite.',
       verificationNotes: 'Not run yet: restart is pending.',
+      pullRequestUrl: 'https://github.com/example/alpha/pull/7',
     });
     first.close();
 
@@ -87,7 +88,11 @@ describe('repository', () => {
       'Alpha',
       'Beta',
     ]);
-    expect(listTasks(second, projectA.id)).toHaveLength(1);
+    expect(listTasks(second, projectA.id)).toEqual([
+      expect.objectContaining({
+        pullRequestUrl: 'https://github.com/example/alpha/pull/7',
+      }),
+    ]);
     second.close();
   });
 
@@ -115,6 +120,7 @@ describe('repository', () => {
     expect(() => moveTask(db, task.id, 'done')).toThrow();
     setTaskCheckpoint(db, task.id, { state: 'not_git' });
     expect(completeTask(db, task.id).column).toBe('done');
+    expect(moveTask(db, task.id, 'verification').column).toBe('verification');
     db.close();
   });
 

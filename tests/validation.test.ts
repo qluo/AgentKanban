@@ -16,6 +16,7 @@ const baseTask: Task = {
   featureId: null,
   createdBy: 'human',
   cancellationReason: null,
+  pullRequestUrl: null,
   title: 'Test task',
   column: 'backlog',
   position: 0,
@@ -121,6 +122,24 @@ describe('task validation', () => {
     expect(() => validateUpdateTaskInput({ progress: '' }, 'agent')).toThrow(
       'progress is required',
     );
+  });
+
+  it('accepts only http or https pull request links', () => {
+    expect(
+      validateUpdateTaskInput(
+        { pullRequestUrl: 'https://github.com/example/repo/pull/42' },
+        'agent',
+      ),
+    ).toEqual({ pullRequestUrl: 'https://github.com/example/repo/pull/42' });
+    expect(() =>
+      validateUpdateTaskInput(
+        { pullRequestUrl: 'javascript:alert(1)' },
+        'agent',
+      ),
+    ).toThrow('must be an http or https URL');
+    expect(validateUpdateTaskInput({ pullRequestUrl: null }, 'agent')).toEqual({
+      pullRequestUrl: null,
+    });
   });
 
   it('blocks Validation until a result is recorded', () => {

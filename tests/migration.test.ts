@@ -69,6 +69,7 @@ describe('task schema migration', () => {
       featureId: null,
       createdBy: 'human',
       cancellationReason: null,
+      pullRequestUrl: null,
     });
     const sql = (
       migrated
@@ -76,6 +77,7 @@ describe('task schema migration', () => {
         .get() as { sql: string }
     ).sql;
     expect(sql).toContain("'canceled'");
+    expect(sql).toContain('pull_request_url');
     migrated.close();
   });
 });

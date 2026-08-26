@@ -25,12 +25,20 @@ The app runs only on the user's machine. A typical installation manages 1–10 r
 ## Capabilities and Constraints
 
 - Six workflow columns: Backlog, Ready, In Progress, Validation, Done, and Canceled. Canceled follows Done and stays hidden until the human exposes it.
-- Desktop drag-and-drop is required in v1.
-- Keyboard and explicit move controls provide an accessible alternative; touch drag-and-drop is outside v1.
+- Task cards are read-only in the browser except for explicit backward status
+  reversion. Agents create, edit, advance, validate, and complete tasks through
+  the CLI.
 - Every project starts by importing a local directory. The browser confirms an existing human-provided `FEATURES.md` or saves a new one to the project directory before enabling the board and agent workflow. Agents never edit the file directly.
 - Agents groom one feature at a time in document order: clarify ambiguity, propose an ID and complete task set, wait for human approval, then create linked agent-owned tasks through the app.
-- Every task records task/acceptance criteria, decisions, validation notes/status, and a Git checkpoint. Progress/next action is optional for a human-created task, but required for agent-created tasks.
-- Agents may move tasks through Validation only. A human browser review is the sole path into Done. Human feature cancellation moves all of its tasks to Canceled with a recorded reason.
+- Every task records task/acceptance criteria, decisions, validation
+  notes/status, a Git checkpoint, and an optional pull-request URL.
+- A project can move between Agent Kanban installations through one JSONL file
+  containing requirements and task continuity. Import always asks for a new
+  local directory and requires a human choice before replacing a differing
+  `FEATURES.md`; source code and secrets are excluded.
+- Implementors move tasks through Validation; authorized Validators move
+  passing tasks to Done. Human feature cancellation moves all of its tasks to
+  Canceled with a recorded reason.
 - Git integration is read-only and never commits, resets, or modifies a repository.
 - The server binds only to `127.0.0.1`; persistent data remains local.
 - V1 is single-user and assumes one active writer at a time.
@@ -43,10 +51,12 @@ The repository currently contains only a generated placeholder scaffold. Represe
 
 - Make current state and the next action obvious.
 - Preserve explicit handoff evidence instead of relying on conversational memory.
-- Keep common board operations fast and direct.
+- Keep task inspection and backward status reversion fast and direct.
 - Never mutate a registered Git repository.
 - Prefer a small complete workflow over speculative project-management features.
 
 ## Accessibility & Inclusion
 
-Core task movement and editing must remain possible without drag-and-drop. Controls need visible focus, readable contrast, concise labels, and clear validation feedback.
+Task inspection and backward status reversion must remain keyboard accessible.
+Controls need visible focus, readable contrast, concise labels, and clear
+validation feedback.

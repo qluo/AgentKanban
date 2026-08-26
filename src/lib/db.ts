@@ -26,6 +26,7 @@ function initialize(db: Database.Database) {
       feature_id TEXT,
       created_by TEXT NOT NULL DEFAULT 'human' CHECK (created_by IN ('human', 'agent')),
       cancellation_reason TEXT,
+      pull_request_url TEXT,
       title TEXT NOT NULL,
       column_id TEXT NOT NULL CHECK (column_id IN ('backlog', 'ready', 'in-progress', 'verification', 'done', 'canceled')),
       position INTEGER NOT NULL DEFAULT 0,
@@ -98,6 +99,7 @@ function migrateTasks(db: Database.Database) {
     !columns.has('feature_id') ||
     !columns.has('created_by') ||
     !columns.has('cancellation_reason') ||
+    !columns.has('pull_request_url') ||
     !schema.includes("'canceled'");
 
   if (!requiresRebuild) return;
@@ -113,6 +115,7 @@ function migrateTasks(db: Database.Database) {
           feature_id TEXT,
           created_by TEXT NOT NULL DEFAULT 'human' CHECK (created_by IN ('human', 'agent')),
           cancellation_reason TEXT,
+          pull_request_url TEXT,
           title TEXT NOT NULL,
           column_id TEXT NOT NULL CHECK (column_id IN ('backlog', 'ready', 'in-progress', 'verification', 'done', 'canceled')),
           position INTEGER NOT NULL DEFAULT 0,
@@ -133,7 +136,7 @@ function migrateTasks(db: Database.Database) {
       `);
       db.exec(`
         INSERT INTO tasks_migrating (
-          number, id, project_id, feature_id, created_by, cancellation_reason,
+          number, id, project_id, feature_id, created_by, cancellation_reason, pull_request_url,
           title, column_id, position, task, progress, decisions,
           verification_status, verification_notes, checkpoint_state, git_branch,
           git_sha, git_dirty, checkpoint_error, checkpoint_captured_at, created_at, updated_at
@@ -142,6 +145,7 @@ function migrateTasks(db: Database.Database) {
           ${columns.has('feature_id') ? 'feature_id' : 'NULL'},
           ${columns.has('created_by') ? 'created_by' : "'human'"},
           ${columns.has('cancellation_reason') ? 'cancellation_reason' : 'NULL'},
+          ${columns.has('pull_request_url') ? 'pull_request_url' : 'NULL'},
           title, column_id, position, task, progress, decisions,
           verification_status, verification_notes, checkpoint_state, git_branch,
           git_sha, git_dirty, checkpoint_error, checkpoint_captured_at, created_at, updated_at

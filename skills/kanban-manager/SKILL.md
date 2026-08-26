@@ -15,6 +15,25 @@ npm --prefix "<agent-kanban-directory>" run kanban -- <command>
 
 Set `KANBAN_URL` only when the user runs the server at a non-default local URL. Never expose the app beyond a loopback address.
 
+## Follow the project roles
+
+Read the registered project's `AGENTS.md` before planning or changing board
+state. Humans communicate only with the Tech Lead; subagents report to it and
+never seek human decisions directly. For the Agent Kanban workflow:
+
+- The Tech Lead owns planning, task contracts, delegation, rework, reopening,
+  and human-confirmed cancellation. It moves Backlog → Ready and may return
+  failed Validation → Ready; it reopens Done → Ready only at human request.
+- An Implementor accepts one delegated Ready card, reads its contract and
+  parent feature, and moves only Ready → In Progress → Validation.
+- A Validator accepts one delegated Validation card, reviews it independently,
+  records evidence, and moves Validation → Done with `task complete <task-id>`
+  when validation passes. On failure it leaves the card in Validation and
+  reports the blockers; it never fixes the implementation.
+- Each Implementor and Validator may hold only one active card. Refuse a
+  mismatched or multi-card assignment without changing code or board state.
+  Every delegation must name one card ID, role, and expected transition.
+
 ## Features are the requirements source of truth
 
 - Read `FEATURES.md` only through the Agent Kanban app or CLI; run `feature list
@@ -40,8 +59,10 @@ next feature until the current one is approved and persisted.
 2. Ask focused clarifying questions when its scope, acceptance criteria, or
    boundaries are unclear. Do not invent requirements to avoid asking.
 3. Propose one unique ID such as `FEAT-001` and the complete task set for that
-   feature, including each task's title, acceptance criteria, progress, next
-   action, and dependencies. Show the complete proposal to the human.
+   feature. Every task contract must include scope, acceptance criteria,
+   dependencies, non-goals, constraints, and required validation. Also include
+   its title, progress, and next action. Show the complete proposal to the
+   human.
 4. Wait for explicit human approval. Approval must cover the proposed ID and
    task set; a general request to plan work is not approval.
 5. After approval, ask the app to persist the ID with `feature assign-id
@@ -51,10 +72,13 @@ next feature until the current one is approved and persisted.
    <feature-id> ... --progress <text>`. CLI-created tasks are agent-owned and
    must always have progress and a next action.
 
-If a human cancels a feature, do not recreate its work or move individual tasks
-to `canceled`. The browser records the cancellation, moves linked tasks, and
-stores the reason. Update any active-task handoff with the cancellation context
-and ask the human how to proceed with unrelated work.
+Complete this grooming cycle for every existing feature before delegating any
+development work. Never pause grooming to wait for implementation.
+
+Cancellation requires an explicit human request or confirmation. The Tech Lead
+records the reason and uses the supported app operation; for feature
+cancellation, the browser moves all linked tasks. Do not recreate canceled work
+or alter `FEATURES.md` directly.
 
 ## Resume work
 
@@ -70,8 +94,11 @@ and ask the human how to proceed with unrelated work.
 - Preserve existing decisions unless a meaningful choice changed. Record the choice, reason, and rejected alternative concisely.
 - Record commands or checks actually run and their outcomes. When validation was not run, retain an explicit reason and `not_run` status.
 - Use `task update <task-id>` for continuity text and `task move <task-id> <column>` for workflow state.
-- Moving to `verification` (the Validation column) requires a recorded validation result. Agents never move a task to `done` or `canceled`.
-- Only the browser's explicit human review-and-complete action can move a verified task to Done. Do not ask the CLI or API to bypass that review.
+- Moving to `verification` (the Validation column) requires a recorded
+  validation result. Only the Tech Lead may perform a human-confirmed
+  cancellation and must record its reason.
+- An independently assigned Validator moves a card from Validation → Done with
+  `task complete <task-id>` when the card contains passing validation evidence.
 - If a transition is rejected, update the missing continuity evidence; do not bypass validation.
 
 ## Handoff work
@@ -82,6 +109,12 @@ Before ending a work session:
 2. Update `--decisions` when an important choice was made; otherwise preserve the existing explicit entry.
 3. Update `--verification-status` and `--verification-notes` with validation checks run, results, failures, or an explicit reason they were not run.
 4. Run `task checkpoint <task-id> --json` after the final checks. This reads branch, commit SHA, and dirty state; it never commits or changes Git.
-5. Move the task only to Backlog, Ready, In Progress, or Validation as supported by that evidence, then run `task show <task-id> --json` and confirm the saved handoff. Completion stops at Validation for human review.
+5. Move the task only as supported by its evidence and role, then run `task
+   show <task-id> --json` and confirm the saved handoff. Implementors stop at
+   Validation; Validators use `task complete <task-id>` after validation
+   passes.
+6. After a Done card's focused pull request is created, the Tech Lead records it
+   with `task update <task-id> --pull-request-url <url>` and confirms the saved
+   link with `task show <task-id> --json`.
 
 Never commit, reset, clean, checkout, stage, or otherwise mutate Git merely to satisfy the board. An explicit dirty checkpoint is valid.

@@ -1,41 +1,21 @@
 'use client';
 
 import {
-  DndContext,
-  DragOverlay,
-  KeyboardSensor,
-  PointerSensor,
-  closestCorners,
-  pointerWithin,
-  useDroppable,
-  useSensor,
-  useSensors,
-  type DragEndEvent,
-  type DragStartEvent,
-} from '@dnd-kit/core';
-import {
-  SortableContext,
-  useSortable,
-  verticalListSortingStrategy,
-} from '@dnd-kit/sortable';
-import { CSS } from '@dnd-kit/utilities';
-import {
-  ArrowLeft,
-  ArrowRight,
   CheckCircle2,
   ChevronDown,
   CircleAlert,
+  Download,
   Eye,
   EyeOff,
+  ExternalLink,
   FolderGit2,
   GitBranch,
   GitCommitHorizontal,
-  GripVertical,
   LoaderCircle,
   Plus,
   RefreshCw,
   Save,
-  Trash2,
+  Upload,
   X,
 } from 'lucide-react';
 import {
@@ -51,7 +31,6 @@ import {
   type Project,
   type Task,
   type TaskColumn,
-  type VerificationStatus,
 } from '@/src/lib/types';
 
 type Workspace = 'board' | 'features';
@@ -62,6 +41,23 @@ type FeaturesDocument = {
   markdown: string | null;
   features: Feature[];
 };
+type MigrationPreview = {
+  project: {
+    name: string;
+    repoRemote: string | null;
+    defaultBranch: string | null;
+  };
+  featureCount: number;
+  taskCount: number;
+  destinationPath: string;
+  existingFeatures: boolean;
+  importedFeatures: boolean;
+  featuresConflict: boolean;
+  canUseExistingFeatures: boolean;
+  destinationFeaturesVersion: string;
+  existingFeaturesContent: string | null;
+  importedFeaturesContent: string | null;
+};
 
 const columns: BoardColumn[] = [
   'backlog',
@@ -71,12 +67,6 @@ const columns: BoardColumn[] = [
   'done',
   'canceled',
 ];
-const movableColumns: TaskColumn[] = [
-  'backlog',
-  'ready',
-  'in-progress',
-  'verification',
-];
 const labels: Record<BoardColumn, string> = {
   backlog: 'Backlog',
   ready: 'Ready',
@@ -85,16 +75,6 @@ const labels: Record<BoardColumn, string> = {
   done: 'Done',
   canceled: 'Canceled',
 };
-const emptyTask = {
-  title: '',
-  task: '',
-  progress: '',
-  decisions: 'No decisions yet.',
-  verificationStatus: 'not_run' as VerificationStatus,
-  verificationNotes: 'Not run yet: task has not started.',
-  featureId: '',
-};
-
 function directoryBasename(path: string) {
   const normalized = path.trim().replace(/[\\/]+$/, '');
   const basename = normalized.split(/[\\/]/).filter(Boolean).pop();
@@ -135,24 +115,11 @@ function TaskCard({
   task,
   features,
   onOpen,
-  overlay = false,
 }: {
   task: Task;
   features: Feature[];
   onOpen?: (task: Task) => void;
-  overlay?: boolean;
 }) {
-  const {
-    attributes,
-    listeners,
-    setNodeRef,
-    transform,
-    transition,
-    isDragging,
-  } = useSortable({
-    id: task.id,
-    disabled: overlay || !movableColumns.includes(task.column),
-  });
   const feature = features.find((item) => item.id === task.featureId);
   const progress =
     task.progress.trim() ||
@@ -161,19 +128,13 @@ function TaskCard({
       : 'No next action recorded.');
 
   return (
-    <article
-      ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition }}
-      className={`task-card${isDragging ? ' is-dragging' : ''}${overlay ? ' drag-overlay' : ''}${task.column === 'canceled' ? ' is-canceled' : ''}`}
+    <button
+      type="button"
+      className={`task-card${task.column === 'canceled' ? ' is-canceled' : ''}`}
       onClick={() => onOpen?.(task)}
-      {...attributes}
-      {...listeners}
     >
       <div className="task-card-topline">
         <span className="task-reference">{task.reference}</span>
-        {movableColumns.includes(task.column) && (
-          <GripVertical aria-hidden="true" size={14} className="drag-grip" />
-        )}
       </div>
       <h3>{task.title}</h3>
       {feature && (
@@ -211,7 +172,7 @@ function TaskCard({
         )}
         <span>{new Date(task.updatedAt).toLocaleDateString()}</span>
       </div>
-    </article>
+    </button>
   );
 }
 
@@ -220,28 +181,21 @@ function BoardColumnView({
   tasks,
   features,
   onOpen,
-  droppable,
 }: {
   column: BoardColumn;
   tasks: Task[];
   features: Feature[];
   onOpen: (task: Task) => void;
-  droppable: boolean;
 }) {
-  const { setNodeRef, isOver } = useDroppable({
-    id: `column:${column}`,
-    disabled: !droppable,
-  });
   const emptyCopy =
     column === 'verification'
-      ? 'Ready for human review'
+      ? 'Ready for validation'
       : column === 'done'
-        ? 'No reviewed tasks'
+        ? 'No validated tasks'
         : 'No tasks here';
   return (
     <section
-      ref={setNodeRef}
-      className={`board-column column-${column}${isOver ? ' is-over' : ''}`}
+      className={`board-column column-${column}`}
       aria-labelledby={`heading-${column}`}
     >
       <header className="column-header">
@@ -251,22 +205,17 @@ function BoardColumnView({
         </div>
         <span className="column-count">{tasks.length}</span>
       </header>
-      <SortableContext
-        items={tasks.map((task) => task.id)}
-        strategy={verticalListSortingStrategy}
-      >
-        <div className="task-stack">
-          {tasks.map((task) => (
-            <TaskCard
-              key={task.id}
-              task={task}
-              features={features}
-              onOpen={onOpen}
-            />
-          ))}
-          {!tasks.length && <p className="column-empty">{emptyCopy}</p>}
-        </div>
-      </SortableContext>
+      <div className="task-stack">
+        {tasks.map((task) => (
+          <TaskCard
+            key={task.id}
+            task={task}
+            features={features}
+            onOpen={onOpen}
+          />
+        ))}
+        {!tasks.length && <p className="column-empty">{emptyCopy}</p>}
+      </div>
     </section>
   );
 }
@@ -395,215 +344,422 @@ function ProjectDialog({
   );
 }
 
-function TaskDrawer({
-  project,
-  task,
-  features,
-  creating,
+function MigrationDialog({
+  open,
   onClose,
-  onSaved,
-  onDeleted,
+  onImported,
 }: {
-  project: Project;
-  task: Task | null;
-  features: Feature[];
-  creating: boolean;
+  open: boolean;
   onClose: () => void;
-  onSaved: (task: Task) => void;
-  onDeleted: (id: string) => void;
+  onImported: (project: Project) => void;
 }) {
-  const [form, setForm] = useState(() =>
-    task
-      ? {
-          title: task.title,
-          task: task.task,
-          progress: task.progress,
-          decisions: task.decisions,
-          verificationStatus: task.verificationStatus,
-          verificationNotes: task.verificationNotes,
-          featureId: task.featureId || '',
-        }
-      : emptyTask,
-  );
+  const dialogRef = useRef<HTMLDialogElement>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const [fileName, setFileName] = useState('');
+  const [jsonl, setJsonl] = useState('');
+  const [repoPath, setRepoPath] = useState('');
+  const [preview, setPreview] = useState<MigrationPreview | null>(null);
+  const [featuresChoice, setFeaturesChoice] = useState<
+    'existing' | 'imported' | null
+  >(null);
+  const [working, setWorking] = useState(false);
   const [error, setError] = useState('');
-  const [saving, setSaving] = useState(false);
-  const [capturing, setCapturing] = useState(false);
-  const [confirmComplete, setConfirmComplete] = useState(false);
-  const [confirmDelete, setConfirmDelete] = useState(false);
-  const titleRef = useRef<HTMLInputElement>(null);
-  const humanTask = creating || task?.createdBy === 'human';
+
+  function reset() {
+    setFileName('');
+    setJsonl('');
+    setRepoPath('');
+    setPreview(null);
+    setFeaturesChoice(null);
+    setError('');
+    if (fileRef.current) fileRef.current.value = '';
+  }
+  function close() {
+    reset();
+    onClose();
+  }
   useEffect(() => {
-    const id = window.setTimeout(() => titleRef.current?.focus(), 60);
-    return () => window.clearTimeout(id);
-  }, []);
-  function setField<K extends keyof typeof form>(
-    key: K,
-    value: (typeof form)[K],
-  ) {
-    setForm((current) => ({ ...current, [key]: value }));
+    const dialog = dialogRef.current;
+    if (open && !dialog?.open) dialog?.showModal();
+    if (!open && dialog?.open) dialog.close();
+  }, [open]);
+  async function selectFile(file: File | undefined) {
+    setPreview(null);
+    setFeaturesChoice(null);
+    setError('');
+    if (!file) {
+      setFileName('');
+      setJsonl('');
+      return;
+    }
+    if (file.size > 10 * 1024 * 1024) {
+      setFileName('');
+      setJsonl('');
+      setError('Migration files must be 10 MB or smaller.');
+      return;
+    }
+    try {
+      const content = await file.text();
+      setFileName(file.name);
+      setJsonl(content);
+      setRepoPath((current) => {
+        if (current.trim()) return current;
+        try {
+          const projectRecord = content
+            .split(/\r?\n/)
+            .filter(Boolean)
+            .map((line) => JSON.parse(line) as Record<string, unknown>)
+            .find((record) => record.type === 'project');
+          const projectName =
+            typeof projectRecord?.name === 'string'
+              ? projectRecord.name.trim().replace(/[\\/]+/g, '-')
+              : '';
+          return projectName ? `~/projects/${projectName}` : current;
+        } catch {
+          return current;
+        }
+      });
+    } catch {
+      setError('Could not read the selected migration file.');
+    }
   }
-  async function save(event: FormEvent) {
+  async function review(event: FormEvent) {
     event.preventDefault();
-    setSaving(true);
+    setWorking(true);
     setError('');
     try {
-      const { task: saved } = await api<{ task: Task }>(
-        creating
-          ? `/api/projects/${project.id}/tasks`
-          : `/api/tasks/${task?.id}`,
-        {
-          method: creating ? 'POST' : 'PATCH',
-          body: JSON.stringify({
-            ...form,
-            featureId: form.featureId || undefined,
-            ...(creating ? { createdBy: 'human' } : {}),
-          }),
-        },
+      const { preview: nextPreview } = await api<{
+        preview: MigrationPreview;
+      }>('/api/projects/import/preview', {
+        method: 'POST',
+        body: JSON.stringify({ jsonl, repoPath }),
+      });
+      setPreview(nextPreview);
+      setRepoPath(nextPreview.destinationPath);
+      setFeaturesChoice(
+        nextPreview.featuresConflict
+          ? null
+          : nextPreview.importedFeatures
+            ? 'imported'
+            : nextPreview.existingFeatures
+              ? 'existing'
+              : null,
       );
-      onSaved(saved);
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : 'Could not save task.',
-      );
-    } finally {
-      setSaving(false);
-    }
-  }
-  async function move(offset: number) {
-    if (!task) return;
-    const next = movableColumns[movableColumns.indexOf(task.column) + offset];
-    if (!next) return;
-    try {
-      const { task: moved } = await api<{ task: Task }>(
-        `/api/tasks/${task.id}/move`,
-        { method: 'POST', body: JSON.stringify({ column: next }) },
-      );
-      onSaved(moved);
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : 'Could not move task.',
-      );
-    }
-  }
-  async function capture() {
-    if (!task) return;
-    setCapturing(true);
-    try {
-      const { task: updated } = await api<{ task: Task }>(
-        `/api/tasks/${task.id}/checkpoint`,
-        { method: 'POST' },
-      );
-      onSaved(updated);
-    } catch (caught) {
-      setError(
-        caught instanceof Error ? caught.message : 'Checkpoint capture failed.',
-      );
-    } finally {
-      setCapturing(false);
-    }
-  }
-  async function complete() {
-    if (!task) return;
-    setSaving(true);
-    setError('');
-    try {
-      const { task: completed } = await api<{ task: Task }>(
-        `/api/tasks/${task.id}/complete`,
-        { method: 'POST' },
-      );
-      onSaved(completed);
     } catch (caught) {
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Review could not complete this task. Resolve the validation and checkpoint requirements, then try again.',
+          : 'Could not review this migration.',
       );
     } finally {
-      setSaving(false);
+      setWorking(false);
     }
   }
-  async function remove() {
-    if (!task) return;
+  async function importProject() {
+    if (!preview) return;
+    setWorking(true);
+    setError('');
     try {
-      await api(`/api/tasks/${task.id}`, { method: 'DELETE' });
-      onDeleted(task.id);
+      const { project } = await api<{ project: Project }>(
+        '/api/projects/import',
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            jsonl,
+            repoPath,
+            featuresChoice,
+            destinationFeaturesVersion:
+              preview.destinationFeaturesVersion,
+          }),
+        },
+      );
+      reset();
+      onImported(project);
+    } catch (caught) {
+      const message =
+        caught instanceof Error ? caught.message : 'Could not import project.';
+      if (message.includes('changed after review')) {
+        setPreview(null);
+        setFeaturesChoice(null);
+      }
+      setError(message);
+    } finally {
+      setWorking(false);
+    }
+  }
+
+  return (
+    <dialog
+      ref={dialogRef}
+      className="project-dialog migration-dialog"
+      onClose={close}
+      aria-labelledby="migration-dialog-title"
+    >
+      <form onSubmit={review}>
+        <div className="dialog-heading">
+          <div>
+            <h2 id="migration-dialog-title">Import project migration</h2>
+            <p>
+              Restore features, task contracts, progress, validation, Git
+              checkpoints, and pull-request links into a local directory.
+            </p>
+          </div>
+          <button
+            type="button"
+            className="icon-button"
+            onClick={close}
+            aria-label="Close migration import"
+          >
+            <X size={17} />
+          </button>
+        </div>
+        <div className="migration-file-row">
+          <input
+            ref={fileRef}
+            className="visually-hidden"
+            type="file"
+            accept=".jsonl,application/x-ndjson,application/json"
+            onChange={(event) => void selectFile(event.target.files?.[0])}
+          />
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => fileRef.current?.click()}
+          >
+            <Upload size={15} />
+            Choose JSONL
+          </button>
+          <span>{fileName || 'No migration file selected'}</span>
+        </div>
+        <label>
+          Destination local directory
+          <span className="field-note">
+            The directory is created if needed. Exported absolute paths are
+            never reused.
+          </span>
+          <input
+            value={repoPath}
+            onChange={(event) => {
+              setRepoPath(event.target.value);
+              setPreview(null);
+              setFeaturesChoice(null);
+            }}
+            required
+            placeholder="~/projects/project-name"
+          />
+        </label>
+        {preview && (
+          <section className="migration-preview" aria-live="polite">
+            <div className="migration-summary">
+              <div>
+                <span>Project</span>
+                <strong>{preview.project.name}</strong>
+              </div>
+              <div>
+                <span>Features</span>
+                <strong>{preview.featureCount}</strong>
+              </div>
+              <div>
+                <span>Tasks</span>
+                <strong>{preview.taskCount}</strong>
+              </div>
+            </div>
+            {(preview.project.repoRemote || preview.project.defaultBranch) && (
+              <p className="migration-repository">
+                {preview.project.repoRemote || 'No repository remote'}
+                {preview.project.defaultBranch
+                  ? ` · ${preview.project.defaultBranch}`
+                  : ''}
+              </p>
+            )}
+            {preview.featuresConflict ? (
+              <fieldset className="features-conflict">
+                <legend>Choose which FEATURES.md to keep</legend>
+                <p>
+                  The destination file differs from the migration. Agent
+                  Kanban will not overwrite it without your choice.
+                </p>
+                <div className="features-comparison">
+                  <section>
+                    <strong>Destination file</strong>
+                    <pre>
+                      {preview.existingFeaturesContent ||
+                        'The destination file is empty.'}
+                    </pre>
+                  </section>
+                  <section>
+                    <strong>Migration file</strong>
+                    <pre>
+                      {preview.importedFeaturesContent ||
+                        'The migration file is empty.'}
+                    </pre>
+                  </section>
+                </div>
+                <label>
+                  <input
+                    type="radio"
+                    name="features-choice"
+                    value="imported"
+                    checked={featuresChoice === 'imported'}
+                    onChange={() => setFeaturesChoice('imported')}
+                  />
+                  Restore the FEATURES.md from this migration
+                </label>
+                <label
+                  className={
+                    !preview.canUseExistingFeatures ? 'is-disabled' : ''
+                  }
+                >
+                  <input
+                    type="radio"
+                    name="features-choice"
+                    value="existing"
+                    checked={featuresChoice === 'existing'}
+                    disabled={!preview.canUseExistingFeatures}
+                    onChange={() => setFeaturesChoice('existing')}
+                  />
+                  Keep the destination FEATURES.md
+                </label>
+                {!preview.canUseExistingFeatures && (
+                  <small>
+                    The destination file is missing feature IDs used by
+                    imported tasks.
+                  </small>
+                )}
+              </fieldset>
+            ) : (
+              <p className="features-ready">
+                <CheckCircle2 size={15} />
+                {preview.existingFeatures
+                  ? 'The destination FEATURES.md is compatible.'
+                  : preview.importedFeatures
+                    ? 'FEATURES.md will be restored from the migration.'
+                    : 'This migration does not contain FEATURES.md.'}
+              </p>
+            )}
+          </section>
+        )}
+        {error && (
+          <p className="form-error" role="alert">
+            <CircleAlert size={15} />
+            {error}
+          </p>
+        )}
+        <div className="dialog-actions">
+          <button type="button" className="secondary-button" onClick={close}>
+            Cancel
+          </button>
+          {preview ? (
+            <button
+              type="button"
+              className="primary-button"
+              onClick={importProject}
+              disabled={
+                working || (preview.featuresConflict && !featuresChoice)
+              }
+            >
+              {working && <LoaderCircle className="spin" size={15} />}
+              Import project
+            </button>
+          ) : (
+            <button
+              type="submit"
+              className="primary-button"
+              disabled={working || !jsonl || !repoPath.trim()}
+            >
+              {working && <LoaderCircle className="spin" size={15} />}
+              Review migration
+            </button>
+          )}
+        </div>
+      </form>
+    </dialog>
+  );
+}
+
+function TaskDrawer({
+  task,
+  features,
+  onClose,
+  onReverted,
+}: {
+  task: Task;
+  features: Feature[];
+  onClose: () => void;
+  onReverted: (task: Task) => void;
+}) {
+  const [error, setError] = useState('');
+  const [reverting, setReverting] = useState(false);
+  const previousColumn: Partial<Record<TaskColumn, TaskColumn>> = {
+    ready: 'backlog',
+    'in-progress': 'ready',
+    verification: 'in-progress',
+    done: 'verification',
+  };
+  const previous = previousColumn[task.column];
+  async function revertStatus() {
+    if (!previous) return;
+    setReverting(true);
+    setError('');
+    try {
+      const { task: reverted } = await api<{ task: Task }>(
+        `/api/tasks/${task.id}/move`,
+        { method: 'POST', body: JSON.stringify({ column: previous }) },
+      );
+      onReverted(reverted);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'Could not delete task.',
+        caught instanceof Error
+          ? caught.message
+          : 'Could not revert the task status.',
       );
+    } finally {
+      setReverting(false);
     }
   }
   return (
     <>
       <button
         type="button"
-        aria-label="Close task editor"
+        aria-label="Close task details"
         className="drawer-scrim is-open"
         onClick={onClose}
       />
-      <aside className="task-drawer is-open">
-        <form onSubmit={save}>
+      <aside
+        className="task-drawer is-open"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="task-drawer-title"
+      >
+        <div className="task-drawer-content">
           <header className="drawer-header">
             <div>
-              <p>
-                {creating
-                  ? 'New human task'
-                  : `${task?.reference} · ${task ? labels[task.column] : ''}`}
-              </p>
-              <h2>{creating ? 'Create a handoff record' : task?.title}</h2>
+              <p>{`${task.reference} · ${labels[task.column]}`}</p>
+              <h2 id="task-drawer-title">{task.title}</h2>
             </div>
             <button
               type="button"
               className="icon-button"
               onClick={onClose}
-              aria-label="Close task editor"
+              aria-label="Close task details"
             >
               <X size={18} />
             </button>
           </header>
           <div className="drawer-body">
+            <p className="agent-managed-notice">
+              Read-only in the web app. Agents maintain task content and status;
+              humans may only revert a status from the footer.
+            </p>
             <label>
               Title
-              <input
-                ref={titleRef}
-                value={form.title}
-                onChange={(event) => setField('title', event.target.value)}
-                required
-              />
+              <input value={task.title} readOnly />
             </label>
             <label>
               Task and acceptance criteria
-              <textarea
-                value={form.task}
-                onChange={(event) => setField('task', event.target.value)}
-                rows={4}
-                required
-              />
+              <textarea value={task.task} readOnly rows={4} />
             </label>
-            {creating ? (
-              <label>
-                Feature
-                <select
-                  value={form.featureId}
-                  onChange={(event) =>
-                    setField('featureId', event.target.value)
-                  }
-                >
-                  <option value="">No parent feature</option>
-                  {features
-                    .filter((feature) => feature.status !== 'canceled')
-                    .map((feature) => (
-                      <option
-                        key={featureKey(feature)}
-                        value={feature.id ?? ''}
-                        disabled={!feature.id}
-                      >
-                        {featureLabel(feature)}
-                      </option>
-                    ))}
-                </select>
-              </label>
-            ) : task?.featureId ? (
+            {task.featureId ? (
               <div className="read-only-field">
                 <span>Parent feature</span>
                 <strong>
@@ -619,44 +775,16 @@ function TaskDrawer({
             ) : null}
             <label>
               Progress and next action
-              <textarea
-                value={form.progress}
-                onChange={(event) => setField('progress', event.target.value)}
-                placeholder={
-                  humanTask
-                    ? 'Optional until work begins'
-                    : 'Put the immediate next action first'
-                }
-                rows={4}
-                required={!humanTask}
-              />
-              {humanTask && (
-                <span className="field-note">
-                  Optional for human-created tasks. Add it when work starts.
-                </span>
-              )}
+              <textarea value={task.progress} readOnly rows={4} />
             </label>
             <label>
               Decisions
-              <textarea
-                value={form.decisions}
-                onChange={(event) => setField('decisions', event.target.value)}
-                rows={3}
-                required
-              />
+              <textarea value={task.decisions} readOnly rows={3} />
             </label>
             <div className="verification-fields">
               <label>
                 Validation result
-                <select
-                  value={form.verificationStatus}
-                  onChange={(event) =>
-                    setField(
-                      'verificationStatus',
-                      event.target.value as VerificationStatus,
-                    )
-                  }
-                >
+                <select value={task.verificationStatus} disabled>
                   <option value="not_run">Not run</option>
                   <option value="passed">Passed</option>
                   <option value="failed">Failed</option>
@@ -665,133 +793,48 @@ function TaskDrawer({
               </label>
               <label>
                 Validation notes
-                <textarea
-                  value={form.verificationNotes}
-                  onChange={(event) =>
-                    setField('verificationNotes', event.target.value)
-                  }
-                  rows={3}
-                  required
-                />
+                <textarea value={task.verificationNotes} readOnly rows={3} />
               </label>
             </div>
-            {task && (
-              <section className="checkpoint-panel">
-                <div>
-                  <h3>Git checkpoint</h3>
-                  <p>{checkpointText(task)}</p>
-                </div>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={capture}
-                  disabled={capturing}
-                >
-                  <RefreshCw className={capturing ? 'spin' : ''} size={14} />
-                  Capture
-                </button>
-              </section>
-            )}
-            {task?.column === 'verification' && (
-              <section className="review-zone">
-                <h3>Human review</h3>
-                <p>
-                  Completion is a human action. The app validates the
-                  validation result and Git checkpoint before moving this task
-                  to Done.
-                </p>
-                {confirmComplete ? (
-                  <div className="inline-confirm">
-                    <span>Mark this reviewed task Done?</span>
-                    <button
-                      type="button"
-                      className="primary-button"
-                      onClick={complete}
-                      disabled={saving}
-                    >
-                      Confirm completion
-                    </button>
-                    <button
-                      type="button"
-                      className="secondary-button"
-                      onClick={() => setConfirmComplete(false)}
-                    >
-                      Cancel
-                    </button>
-                  </div>
-                ) : (
-                  <button
-                    type="button"
-                    className="primary-button"
-                    onClick={() => setConfirmComplete(true)}
-                  >
-                    <CheckCircle2 size={15} />
-                    Review and complete
-                  </button>
-                )}
-              </section>
-            )}
+            <section className="checkpoint-panel">
+              <div>
+                <h3>Git checkpoint</h3>
+                <p>{checkpointText(task)}</p>
+              </div>
+            </section>
+            <div className="read-only-field pull-request-field">
+              <span>Pull request</span>
+              {task.pullRequestUrl ? (
+                <a href={task.pullRequestUrl} target="_blank" rel="noreferrer">
+                  <span>{task.pullRequestUrl}</span>
+                  <ExternalLink size={13} aria-hidden="true" />
+                </a>
+              ) : (
+                <strong>Not linked yet</strong>
+              )}
+            </div>
             {error && (
               <p className="form-error" role="alert">
                 <CircleAlert size={15} />
                 {error}
               </p>
             )}
-            {task && (
-              <div className="delete-zone">
-                {confirmDelete ? (
-                  <div>
-                    <span>Delete this task permanently?</span>
-                    <button type="button" onClick={remove}>
-                      Yes, delete
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDelete(false)}
-                    >
-                      Keep task
-                    </button>
-                  </div>
-                ) : (
-                  <button type="button" onClick={() => setConfirmDelete(true)}>
-                    <Trash2 size={14} />
-                    Delete task
-                  </button>
-                )}
-              </div>
-            )}
           </div>
-          <footer className="drawer-footer">
-            {task && movableColumns.includes(task.column) ? (
-              <div className="move-buttons">
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => move(-1)}
-                  disabled={task.column === 'backlog'}
-                >
-                  <ArrowLeft size={14} />
-                  Previous
-                </button>
-                <button
-                  type="button"
-                  className="secondary-button"
-                  onClick={() => move(1)}
-                  disabled={task.column === 'verification'}
-                >
-                  Next
-                  <ArrowRight size={14} />
-                </button>
-              </div>
-            ) : (
-              <span />
-            )}
-            <button type="submit" className="primary-button" disabled={saving}>
-              {saving && <LoaderCircle className="spin" size={15} />}
-              {creating ? 'Create task' : 'Save changes'}
-            </button>
-          </footer>
-        </form>
+          {previous && (
+            <footer className="drawer-footer read-only-footer">
+              <span>Need to send this task back?</span>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={revertStatus}
+                disabled={reverting}
+              >
+                {reverting && <LoaderCircle className="spin" size={15} />}
+                Revert to {labels[previous]}
+              </button>
+            </footer>
+          )}
+        </div>
       </aside>
     </>
   );
@@ -1436,19 +1479,14 @@ export default function Home() {
   const [featuresLoading, setFeaturesLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
-  const [activeId, setActiveId] = useState<string | null>(null);
   const [drawerId, setDrawerId] = useState<string | null>(null);
-  const [creating, setCreating] = useState(false);
   const [projectDialogOpen, setProjectDialogOpen] = useState(false);
+  const [migrationDialogOpen, setMigrationDialogOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
   const [showCanceled, setShowCanceled] = useState(false);
-  const sensors = useSensors(
-    useSensor(PointerSensor, { activationConstraint: { distance: 6 } }),
-    useSensor(KeyboardSensor),
-  );
   const project = projects.find((item) => item.id === selectedId) ?? null;
   const requirementsPending = project?.featuresConfirmedAt === null;
   const drawerTask = tasks.find((task) => task.id === drawerId) ?? null;
-  const activeTask = tasks.find((task) => task.id === activeId) ?? null;
   const loadTasks = useCallback(
     async (id: string) =>
       setTasks(
@@ -1530,41 +1568,41 @@ export default function Home() {
         : [...current, task],
     );
     setDrawerId(task.id);
-    setCreating(false);
   }
   function replaceProject(updated: Project) {
     setProjects((current) =>
       current.map((item) => (item.id === updated.id ? updated : item)),
     );
   }
-  async function dragEnd(event: DragEndEvent) {
-    setActiveId(null);
-    const task = tasks.find((item) => item.id === String(event.active.id));
-    const over = String(event.over?.id || '');
-    const destination = (
-      over.startsWith('column:')
-        ? over.slice(7)
-        : tasks.find((item) => item.id === over)?.column
-    ) as TaskColumn | undefined;
-    if (!task || !destination || task.column === destination) return;
-    if (!movableColumns.includes(destination)) {
-      setError(
-        'Done requires human review, and Canceled is reserved for feature cancellation.',
-      );
-      return;
-    }
+  async function exportProject() {
+    if (!project) return;
+    setExporting(true);
+    setError('');
     try {
-      const { task: moved } = await api<{ task: Task }>(
-        `/api/tasks/${task.id}/move`,
-        { method: 'POST', body: JSON.stringify({ column: destination }) },
-      );
-      replaceTask(moved);
-      setDrawerId(null);
-      setNotice(`${moved.title} moved to ${labels[destination]}.`);
+      const response = await fetch(`/api/projects/${project.id}/export`);
+      if (!response.ok) {
+        const body = (await response.json().catch(() => ({}))) as {
+          error?: string;
+        };
+        throw new Error(body.error || 'Could not export project.');
+      }
+      const disposition = response.headers.get('content-disposition') ?? '';
+      const filename =
+        disposition.match(/filename="([^"]+)"/)?.[1] ??
+        'agent-kanban-project.jsonl';
+      const url = URL.createObjectURL(await response.blob());
+      const link = window.document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      setNotice(`${project.name} exported as ${filename}.`);
     } catch (caught) {
       setError(
-        caught instanceof Error ? caught.message : 'Could not move task.',
+        caught instanceof Error ? caught.message : 'Could not export project.',
       );
+    } finally {
+      setExporting(false);
     }
   }
   const grouped = useMemo(
@@ -1632,18 +1670,25 @@ export default function Home() {
           )}
           <div className="topbar-actions">
             <button
-              className="primary-button"
               type="button"
-              disabled={!project || requirementsPending}
-              aria-describedby={
-                requirementsPending
-                  ? 'requirements-confirmation-gate'
-                  : undefined
-              }
-              onClick={() => setCreating(true)}
+              className="secondary-button"
+              onClick={() => setMigrationDialogOpen(true)}
             >
-              <Plus size={16} />
-              New task
+              <Upload size={15} />
+              Import
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => void exportProject()}
+              disabled={!project || exporting}
+            >
+              {exporting ? (
+                <LoaderCircle className="spin" size={15} />
+              ) : (
+                <Download size={15} />
+              )}
+              Export
             </button>
           </div>
         </header>
@@ -1694,11 +1739,10 @@ export default function Home() {
                     id="requirements-confirmation-gate"
                     role="status"
                   >
-                    Confirm FEATURES.md in Features to unlock the Board and new
-                    tasks.
+                    Confirm FEATURES.md in Features to unlock the Board.
                   </span>
                 ) : workspace === 'board' ? (
-                  'Drag cards through active work · review explicitly to finish'
+                  'Tasks are managed by agents · open a card to inspect'
                 ) : (
                   'FEATURES.md is the requirements source of truth'
                 )}
@@ -1781,45 +1825,17 @@ export default function Home() {
             onNotice={setNotice}
           />
         ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={(args) => {
-              const targets = args.droppableContainers.filter((container) =>
-                String(container.id).startsWith('column:'),
-              );
-              return pointerWithin({ ...args, droppableContainers: targets })
-                .length
-                ? pointerWithin({ ...args, droppableContainers: targets })
-                : closestCorners({ ...args, droppableContainers: targets });
-            }}
-            onDragStart={(event: DragStartEvent) =>
-              setActiveId(String(event.active.id))
-            }
-            onDragCancel={() => setActiveId(null)}
-            onDragEnd={dragEnd}
-          >
-            <div className={`board${showCanceled ? ' show-canceled' : ''}`}>
-              {visibleColumns.map((column) => (
-                <BoardColumnView
-                  key={column}
-                  column={column}
-                  tasks={grouped[column]}
-                  features={document?.features ?? []}
-                  onOpen={(task) => setDrawerId(task.id)}
-                  droppable={movableColumns.includes(column)}
-                />
-              ))}
-            </div>
-            <DragOverlay>
-              {activeTask && (
-                <TaskCard
-                  task={activeTask}
-                  features={document?.features ?? []}
-                  overlay
-                />
-              )}
-            </DragOverlay>
-          </DndContext>
+          <div className={`board${showCanceled ? ' show-canceled' : ''}`}>
+            {visibleColumns.map((column) => (
+              <BoardColumnView
+                key={column}
+                column={column}
+                tasks={grouped[column]}
+                features={document?.features ?? []}
+                onOpen={(task) => setDrawerId(task.id)}
+              />
+            ))}
+          </div>
         )}
       </section>
       <ProjectDialog
@@ -1832,22 +1848,24 @@ export default function Home() {
           void chooseProject(created.id, created);
         }}
       />
-      {project && (creating || drawerTask) && (
+      <MigrationDialog
+        open={migrationDialogOpen}
+        onClose={() => setMigrationDialogOpen(false)}
+        onImported={(imported) => {
+          setProjects((current) => [...current, imported]);
+          setMigrationDialogOpen(false);
+          setWorkspace(imported.featuresConfirmedAt ? 'board' : 'features');
+          setNotice(`${imported.name} imported successfully.`);
+          void chooseProject(imported.id, imported);
+        }}
+      />
+      {project && drawerTask && (
         <TaskDrawer
-          key={creating ? 'new' : drawerTask?.id}
-          project={project}
+          key={drawerTask.id}
           task={drawerTask}
           features={document?.features ?? []}
-          creating={creating}
-          onClose={() => {
-            setCreating(false);
-            setDrawerId(null);
-          }}
-          onSaved={replaceTask}
-          onDeleted={(id) => {
-            setTasks((current) => current.filter((task) => task.id !== id));
-            setDrawerId(null);
-          }}
+          onClose={() => setDrawerId(null)}
+          onReverted={replaceTask}
         />
       )}
     </main>

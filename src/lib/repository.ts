@@ -55,6 +55,7 @@ function mapTask(row: Row): Task {
     featureId: (row.feature_id as string | null) ?? null,
     createdBy: row.created_by as Task['createdBy'],
     cancellationReason: (row.cancellation_reason as string | null) ?? null,
+    pullRequestUrl: (row.pull_request_url as string | null) ?? null,
     title: row.title as string,
     column: row.column_id as TaskColumn,
     position: row.position as number,
@@ -199,16 +200,17 @@ export function createTask(db: Database.Database, rawInput: unknown) {
 
   db.prepare(
     `INSERT INTO tasks (
-      id, project_id, feature_id, created_by, title, column_id, position, task, progress, decisions,
+      id, project_id, feature_id, created_by, pull_request_url, title, column_id, position, task, progress, decisions,
       verification_status, verification_notes, checkpoint_state, created_at, updated_at
     ) VALUES (
-      @id, @projectId, @featureId, @createdBy, @title, @column, @position, @task, @progress, @decisions,
+      @id, @projectId, @featureId, @createdBy, @pullRequestUrl, @title, @column, @position, @task, @progress, @decisions,
       @verificationStatus, @verificationNotes, 'not_captured', @createdAt, @updatedAt
     )`,
   ).run({
     ...input,
     id,
     position: nextPosition,
+    pullRequestUrl: input.pullRequestUrl ?? null,
     createdAt: timestamp,
     updatedAt: timestamp,
   });
@@ -235,6 +237,7 @@ export function updateTask(
     decisions: 'decisions',
     verificationStatus: 'verification_status',
     verificationNotes: 'verification_notes',
+    pullRequestUrl: 'pull_request_url',
   };
 
   for (const [key, value] of Object.entries(input)) {

@@ -1,7 +1,7 @@
 # Agent Kanban
 
 Agent Kanban is a local, feature-led task board for humans working with coding
-agents. Humans manage requirements in `FEATURES.md` and review completed work in
+agents. Humans manage requirements in `FEATURES.md` and inspect task work in
 the browser; agents use the bundled CLI and Codex skill to maintain task
 handoffs.
 
@@ -53,7 +53,7 @@ give the web server and SQLite connection an opportunity to close normally.
 
 ## Set up your first project
 
-1. Select **Import project** in the web app.
+1. Select **New project** in the web app.
 2. Enter the local directory. Agent Kanban imports it when it exists or creates
    it when it does not. The project name is inferred from the directory name
    and remains editable.
@@ -82,6 +82,30 @@ Users can export a project report as a PDF.
 
 `FEATURES.md` is the source of truth for requirements. Humans edit it through
 the Features workspace or externally; agents must not edit it directly.
+
+## Move a project to another Agent Kanban
+
+Project migration moves board continuity, not repository source code. Copy or
+clone the repository onto the destination machine first when it already
+contains development work.
+
+1. Select the project and choose **Export**. Agent Kanban downloads one
+   `.agent-kanban.jsonl` file containing `FEATURES.md`, features, tasks, task
+   contracts, progress, decisions, validation evidence, Git checkpoints,
+   cancellation reasons, and pull-request links.
+2. In the destination Agent Kanban app, choose **Import** and select that JSONL
+   file.
+3. Choose the destination local directory and review the project, feature, and
+   task counts.
+4. If the directory already has a different `FEATURES.md`, explicitly choose
+   whether to keep it or restore the exported copy. Import is blocked when the
+   selected file lacks feature IDs used by migrated tasks.
+5. Choose **Import project**. The imported project becomes the active
+   workspace and its requirements are confirmed.
+
+Exported absolute paths, credentials, environment values, source files, and UI
+state are never included. Task IDs are retained; visible `KAN-###` references
+are retained when they do not conflict with tasks already in the destination.
 
 ## Install the Codex skill
 
@@ -124,6 +148,7 @@ running. Run these commands from the Agent Kanban repository root:
 npm run kanban -- project list --json
 npm run kanban -- feature list --project <project-id> --json
 npm run kanban -- task list --project <project-id> --json
+npm run kanban -- task update <task-id> --pull-request-url <url>
 ```
 
 When your terminal is in another project, use npm's `--prefix` option with the
@@ -183,9 +208,9 @@ the server to use another location:
 KANBAN_DB_PATH=/absolute/path/kanban.sqlite npm run dev
 ```
 
-Feature requirements remain in each registered project's `FEATURES.md`. Back
-up both the SQLite database and those feature files if you need to preserve the
-complete workspace.
+Feature requirements remain in each registered project's `FEATURES.md`. Use a
+project export when moving one workspace; back up both SQLite and project
+requirements files when protecting the entire installation.
 
 ## Development checks
 
@@ -220,5 +245,6 @@ npm run build
 
   Add the same `export PATH=...` line to your shell profile (for example,
   `~/.zshrc`) to make the selection persistent.
+
 - **A project path is rejected:** make sure its parent directory is writable
   and the resolved path is a directory rather than a file.

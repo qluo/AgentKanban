@@ -128,7 +128,6 @@ select:focus {
 .dialog-heading,
 .dialog-actions,
 .drawer-footer,
-.move-buttons,
 .checkpoint-panel,
 .inline-confirm,
 .editor-actions,
@@ -369,10 +368,6 @@ select:focus {
     border-color 180ms ease,
     background-color 180ms ease;
 }
-.board-column.is-over {
-  border-color: var(--blue);
-  background: var(--blue-soft);
-}
 .column-header {
   display: flex;
   align-items: center;
@@ -433,13 +428,17 @@ select:focus {
   text-align: center;
 }
 .task-card {
+  width: 100%;
   min-width: 0;
   padding: 10px;
   border: 1px solid var(--line);
   border-radius: 12px;
   background: var(--card);
   box-shadow: 0 2px 4px rgba(20, 29, 38, 0.06);
-  cursor: grab;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  text-align: left;
   transition:
     transform 180ms ease,
     border-color 180ms ease,
@@ -453,13 +452,6 @@ select:focus {
 .task-card.is-canceled {
   cursor: pointer;
   opacity: 0.75;
-}
-.task-card.is-dragging {
-  opacity: 0.35;
-}
-.task-card.drag-overlay {
-  width: 220px;
-  transform: rotate(1.5deg);
 }
 .task-card-topline,
 .task-card-meta {
@@ -475,9 +467,6 @@ select:focus {
     monospace;
 }
 .task-reference {
-  color: var(--faint);
-}
-.drag-grip {
   color: var(--faint);
 }
 .task-card h3 {
@@ -621,7 +610,7 @@ select:focus {
 .task-drawer.is-open {
   transform: translateX(0);
 }
-.task-drawer form {
+.task-drawer-content {
   display: grid;
   grid-template-rows: auto 1fr auto;
   height: 100%;
@@ -652,6 +641,24 @@ select:focus {
   gap: 17px;
   overflow-y: auto;
   padding: 18px;
+}
+.agent-managed-notice {
+  margin: 0;
+  padding: 10px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.5;
+}
+.drawer-body input[readonly],
+.drawer-body textarea[readonly],
+.drawer-body select:disabled {
+  background: var(--panel);
+  color: var(--ink);
+  cursor: default;
+  opacity: 1;
 }
 .drawer-body label,
 .project-dialog label,
@@ -684,8 +691,24 @@ select:focus {
 .read-only-field strong {
   font-size: 12px;
 }
-.verification-fields,
-.review-zone {
+.pull-request-field a {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  color: var(--blue);
+  font-size: 12px;
+  font-weight: 700;
+}
+.pull-request-field a span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.pull-request-field a svg {
+  flex: 0 0 auto;
+}
+.verification-fields {
   display: grid;
   gap: 14px;
   padding-top: 15px;
@@ -698,24 +721,16 @@ select:focus {
   border-radius: 10px;
   background: var(--panel);
 }
-.checkpoint-panel h3,
-.review-zone h3 {
+.checkpoint-panel h3 {
   margin: 0 0 5px;
   font-size: 11px;
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
-.checkpoint-panel p,
-.review-zone p {
+.checkpoint-panel p {
   margin: 0;
   font-size: 11px;
   line-height: 1.45;
-}
-.review-zone {
-  padding: 14px;
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  background: var(--panel);
 }
 .drawer-footer {
   justify-content: space-between;
@@ -723,7 +738,10 @@ select:focus {
   padding: 12px 18px;
   border-top: 1px solid var(--line);
 }
-.move-buttons,
+.read-only-footer {
+  color: var(--muted);
+  font-size: 11px;
+}
 .inline-confirm {
   gap: 8px;
   flex-wrap: wrap;
@@ -734,33 +752,6 @@ select:focus {
   border: 1px solid var(--red);
   background: var(--red);
   color: white;
-}
-.delete-zone {
-  padding-top: 15px;
-  border-top: 1px solid var(--line);
-}
-.delete-zone > button,
-.delete-zone > div > button {
-  border: 0;
-  background: transparent;
-  color: var(--red);
-  font-size: 11px;
-}
-.delete-zone > button {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 0;
-}
-.delete-zone > div {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  color: var(--muted);
-  font-size: 11px;
-}
-.delete-zone > div > button:last-child {
-  color: var(--muted);
 }
 
 .project-dialog {
@@ -775,10 +766,166 @@ select:focus {
 .project-dialog::backdrop {
   background: rgba(8, 13, 20, 0.5);
 }
+.migration-dialog {
+  width: min(640px, calc(100% - 32px));
+}
 .project-dialog form {
   display: grid;
   gap: 16px;
   padding: 20px;
+}
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  overflow: hidden;
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.migration-file-row {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  min-width: 0;
+}
+.migration-file-row span {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.migration-preview {
+  display: grid;
+  gap: 13px;
+}
+.migration-summary {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  border-block: 1px solid var(--line);
+}
+.migration-summary > div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+  padding: 10px 13px;
+}
+.migration-summary > div + div {
+  border-left: 1px solid var(--line);
+}
+.migration-summary span {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  text-transform: uppercase;
+}
+.migration-summary strong {
+  overflow: hidden;
+  font-size: 13px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.migration-repository {
+  margin: -4px 0 0;
+  overflow-wrap: anywhere;
+  color: var(--muted);
+  font:
+    10px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+}
+.features-conflict {
+  display: grid;
+  gap: 10px;
+  margin: 0;
+  padding: 13px;
+  border: 1px solid var(--amber);
+  border-radius: 9px;
+}
+.features-conflict legend {
+  padding: 0 5px;
+  color: var(--amber);
+  font-size: 12px;
+  font-weight: 750;
+}
+.features-conflict p,
+.features-conflict small {
+  margin: 0;
+  color: var(--muted);
+  font-size: 11px;
+  line-height: 1.45;
+}
+.project-dialog .features-conflict label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding: 7px 9px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  color: var(--ink);
+  font-size: 12px;
+}
+.project-dialog .features-conflict label:has(input:checked) {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+.features-conflict input {
+  flex: 0 0 auto;
+  width: 18px;
+  min-height: 18px;
+  margin: 0;
+}
+.features-conflict .is-disabled {
+  color: var(--faint);
+}
+.features-comparison {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--panel);
+}
+.features-comparison section {
+  min-width: 0;
+}
+.features-comparison section + section {
+  border-left: 1px solid var(--line);
+}
+.features-comparison strong {
+  display: block;
+  padding: 8px 10px;
+  border-bottom: 1px solid var(--line);
+  font-size: 10px;
+}
+.features-comparison pre {
+  max-height: 190px;
+  margin: 0;
+  padding: 10px;
+  overflow: auto;
+  color: var(--muted);
+  font:
+    10px/1.5 ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.features-ready {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 0;
+  color: var(--green);
+  font-size: 11px;
+  font-weight: 700;
 }
 .dialog-heading {
   align-items: flex-start;
@@ -1116,6 +1263,7 @@ select:focus {
   }
   .topbar {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 10px;
   }
   .brand {
     grid-column: 1 / -1;
@@ -1125,7 +1273,13 @@ select:focus {
     width: 100%;
   }
   .topbar-actions {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
     justify-self: stretch;
+  }
+  .topbar-actions .secondary-button {
+    min-width: 0;
+    padding-inline: 8px;
   }
   .project-picker {
     grid-column: 1 / -1;
@@ -1161,12 +1315,6 @@ select:focus {
     align-items: flex-end;
     flex-direction: column-reverse;
   }
-  .move-buttons {
-    align-self: stretch;
-  }
-  .move-buttons .secondary-button {
-    flex: 1;
-  }
   .features-workspace {
     grid-template-columns: 1fr;
   }
@@ -1175,6 +1323,23 @@ select:focus {
     max-height: 330px;
     border-right: 0;
     border-bottom: 1px solid var(--line);
+  }
+  .migration-summary {
+    grid-template-columns: 1fr 1fr;
+  }
+  .migration-summary > div:first-child {
+    grid-column: 1 / -1;
+    border-bottom: 1px solid var(--line);
+  }
+  .migration-summary > div:nth-child(2) {
+    border-left: 0;
+  }
+  .features-comparison {
+    grid-template-columns: 1fr;
+  }
+  .features-comparison section + section {
+    border-top: 1px solid var(--line);
+    border-left: 0;
   }
   .feature-list-items {
     grid-auto-flow: column;

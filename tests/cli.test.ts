@@ -275,7 +275,7 @@ describe('kanban CLI', () => {
     const done = await runCli(['task', 'move', 'task-1', 'done']);
     expect(done.code).toBe(1);
     expect(done.stderr).toContain(
-      'Only human browser review can move a task to Done.',
+      'Use task complete after independent validation.',
     );
 
     const canceled = await runCli(['task', 'move', 'task-1', 'canceled']);
@@ -283,5 +283,43 @@ describe('kanban CLI', () => {
     expect(canceled.stderr).toContain(
       'Only feature cancellation can move a task to Canceled.',
     );
+  });
+
+  it('links a pull request and completes a validated task', async () => {
+    const requests: RecordedRequest[] = [];
+    const url = await startServer((request) => {
+      requests.push(request);
+      const body = request.body as { pullRequestUrl?: string } | undefined;
+      return { task: { id: 'task-1', pullRequestUrl: body?.pullRequestUrl } };
+    });
+
+    const linked = await runCli(
+      [
+        'task',
+        'update',
+        'task-1',
+        '--pull-request-url',
+        'https://github.com/example/repo/pull/42',
+        '--json',
+      ],
+      url,
+    );
+    expect(linked).toMatchObject({ code: 0, stderr: '' });
+    expect(requests[0]).toEqual({
+      method: 'PATCH',
+      path: '/api/tasks/task-1',
+      body: { pullRequestUrl: 'https://github.com/example/repo/pull/42' },
+    });
+
+    const completed = await runCli(
+      ['task', 'complete', 'task-1', '--json'],
+      url,
+    );
+    expect(completed).toMatchObject({ code: 0, stderr: '' });
+    expect(requests[1]).toEqual({
+      method: 'POST',
+      path: '/api/tasks/task-1/complete',
+      body: undefined,
+    });
   });
 });
