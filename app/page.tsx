@@ -35,7 +35,6 @@ import {
   Plus,
   RefreshCw,
   Save,
-  Settings2,
   Trash2,
   X,
 } from 'lucide-react';
@@ -82,7 +81,7 @@ const labels: Record<BoardColumn, string> = {
   backlog: 'Backlog',
   ready: 'Ready',
   'in-progress': 'In Progress',
-  verification: 'Verification',
+  verification: 'Validation',
   done: 'Done',
   canceled: 'Canceled',
 };
@@ -517,7 +516,7 @@ function TaskDrawer({
       setError(
         caught instanceof Error
           ? caught.message
-          : 'Review could not complete this task. Resolve the verification and checkpoint requirements, then try again.',
+          : 'Review could not complete this task. Resolve the validation and checkpoint requirements, then try again.',
       );
     } finally {
       setSaving(false);
@@ -648,7 +647,7 @@ function TaskDrawer({
             </label>
             <div className="verification-fields">
               <label>
-                Verification result
+                Validation result
                 <select
                   value={form.verificationStatus}
                   onChange={(event) =>
@@ -665,7 +664,7 @@ function TaskDrawer({
                 </select>
               </label>
               <label>
-                Verification notes
+                Validation notes
                 <textarea
                   value={form.verificationNotes}
                   onChange={(event) =>
@@ -698,7 +697,7 @@ function TaskDrawer({
                 <h3>Human review</h3>
                 <p>
                   Completion is a human action. The app validates the
-                  verification result and Git checkpoint before moving this task
+                  validation result and Git checkpoint before moving this task
                   to Done.
                 </p>
                 {confirmComplete ? (
@@ -1592,6 +1591,14 @@ export default function Home() {
               <span>Local handoff desk</span>
             </span>
           </div>
+          <button
+            className="secondary-button topbar-new-project"
+            type="button"
+            onClick={() => setProjectDialogOpen(true)}
+          >
+            <Plus size={16} />
+            New project
+          </button>
           {project ? (
             <label className="project-picker">
               <FolderGit2 size={16} />
@@ -1613,17 +1620,9 @@ export default function Home() {
               <ChevronDown size={14} />
             </label>
           ) : (
-            <div />
+            <div className="project-picker-placeholder" />
           )}
           <div className="topbar-actions">
-            <button
-              className="icon-button"
-              type="button"
-              onClick={() => setProjectDialogOpen(true)}
-              aria-label="Import local directory"
-            >
-              <Settings2 size={17} />
-            </button>
             <button
               className="primary-button"
               type="button"

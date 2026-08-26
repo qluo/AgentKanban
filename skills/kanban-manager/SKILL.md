@@ -61,16 +61,16 @@ and ask the human how to proceed with unrelated work.
 1. Run `project list --json` and match the current working directory to a registered project's `repoPath`.
 2. Run `task list --project <project-id> --json`.
 3. Select the task the user named. If none was named, prefer the sole task in `in-progress`; when selection remains ambiguous, ask instead of guessing.
-4. Run `task show <task-id> --json` and read the entire continuity record before changing code: task and acceptance criteria, progress and next action, decisions, verification notes/status, and Git checkpoint. When the task has a linked feature, read that feature through the CLI before interpreting the task scope.
+4. Run `task show <task-id> --json` and read the entire continuity record before changing code: task and acceptance criteria, progress and next action, decisions, validation notes/status, and Git checkpoint. When the task has a linked feature, read that feature through the CLI before interpreting the task scope.
 5. Compare the written checkpoint and progress with the actual repository state before relying on them. Treat the board as a handoff record, not as proof that code or tests are current.
 
 ## Keep the record accurate
 
 - Board column and written progress are independent. Moving a card never substitutes for updating progress.
 - Preserve existing decisions unless a meaningful choice changed. Record the choice, reason, and rejected alternative concisely.
-- Record commands or checks actually run and their outcomes. When verification was not run, retain an explicit reason and `not_run` status.
+- Record commands or checks actually run and their outcomes. When validation was not run, retain an explicit reason and `not_run` status.
 - Use `task update <task-id>` for continuity text and `task move <task-id> <column>` for workflow state.
-- Moving to `verification` requires a recorded verification result. Agents never move a task to `done` or `canceled`.
+- Moving to `verification` (the Validation column) requires a recorded validation result. Agents never move a task to `done` or `canceled`.
 - Only the browser's explicit human review-and-complete action can move a verified task to Done. Do not ask the CLI or API to bypass that review.
 - If a transition is rejected, update the missing continuity evidence; do not bypass validation.
 
@@ -80,8 +80,8 @@ Before ending a work session:
 
 1. Update `--progress` with completed work, current state, blockers, and the immediate next action.
 2. Update `--decisions` when an important choice was made; otherwise preserve the existing explicit entry.
-3. Update `--verification-status` and `--verification-notes` with checks run, results, failures, or an explicit reason they were not run.
+3. Update `--verification-status` and `--verification-notes` with validation checks run, results, failures, or an explicit reason they were not run.
 4. Run `task checkpoint <task-id> --json` after the final checks. This reads branch, commit SHA, and dirty state; it never commits or changes Git.
-5. Move the task only to Backlog, Ready, In Progress, or Verification as supported by that evidence, then run `task show <task-id> --json` and confirm the saved handoff. Completion stops at Verification for human review.
+5. Move the task only to Backlog, Ready, In Progress, or Validation as supported by that evidence, then run `task show <task-id> --json` and confirm the saved handoff. Completion stops at Validation for human review.
 
 Never commit, reset, clean, checkout, stage, or otherwise mutate Git merely to satisfy the board. An explicit dirty checkpoint is valid.

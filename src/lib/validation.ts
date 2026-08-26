@@ -89,7 +89,7 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
     issues.column = 'Tasks cannot be created directly in Done or Canceled.';
   }
   if (!VERIFICATION_STATUSES.includes(verificationStatus)) {
-    issues.verificationStatus = 'Verification status is invalid.';
+    issues.verificationStatus = 'Validation status is invalid.';
   }
   if (Object.keys(issues).length > 0) throw new ValidationError(issues);
 
@@ -128,7 +128,7 @@ export function validateUpdateTaskInput(
     if (field === 'verificationStatus') {
       const status = value[field] as VerificationStatus;
       if (!VERIFICATION_STATUSES.includes(status)) {
-        issues[field] = 'Verification status is invalid.';
+        issues[field] = 'Validation status is invalid.';
       } else {
         result[field] = status;
       }
@@ -155,7 +155,7 @@ export function validateTransition(task: Task, destination: TaskColumn) {
     task.verificationStatus === 'not_run'
   ) {
     issues.verificationStatus =
-      'Record a verification result before moving this task to Verification or Done.';
+      'Record a validation result before moving this task to Validation or Done.';
   }
 
   if (

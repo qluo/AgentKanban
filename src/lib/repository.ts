@@ -284,7 +284,7 @@ export function completeTask(db: Database.Database, id: string) {
   const task = getTask(db, id);
   if (task.column !== 'verification') {
     throw new ValidationError({
-      column: 'Only tasks in Verification can be completed.',
+      column: 'Only tasks in Validation can be completed.',
     });
   }
   validateTransition(task, 'done');

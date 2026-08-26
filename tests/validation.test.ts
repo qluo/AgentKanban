@@ -123,13 +123,13 @@ describe('task validation', () => {
     );
   });
 
-  it('blocks Verification until a result is recorded', () => {
+  it('blocks Validation until a result is recorded', () => {
     expect(() => validateTransition(baseTask, 'verification')).toThrow(
-      'Record a verification result',
+      'Record a validation result',
     );
   });
 
-  it('blocks Done until verification and a checkpoint are recorded', () => {
+  it('blocks Done until validation and a checkpoint are recorded', () => {
     expect(() =>
       validateTransition({ ...baseTask, verificationStatus: 'passed' }, 'done'),
     ).toThrow('Capture a Git checkpoint');

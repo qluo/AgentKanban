@@ -277,7 +277,7 @@ describe('feature-led HTTP API', () => {
     expect(createdTask.status).toBe(201);
   });
 
-  it('only completes a verified task from Verification with a checkpoint', async () => {
+  it('only completes a validated task from Validation with a checkpoint', async () => {
     const root = mkdtempSync(
       path.join(os.tmpdir(), 'agent-kanban-complete-api-'),
     );

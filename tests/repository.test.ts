@@ -101,7 +101,7 @@ describe('repository', () => {
       projectId: project.id,
       title: 'Verify transitions',
       task: 'Reject incomplete moves.',
-      progress: 'Record verification next.',
+      progress: 'Record validation next.',
       decisions: 'Use server validation.',
       verificationNotes: 'Not run yet: implementation is incomplete.',
     });

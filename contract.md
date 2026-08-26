@@ -34,14 +34,14 @@
 7. Tasks support an optional `featureId`, `createdBy` (`human` or `agent`), and
    `cancellationReason`. Progress/next action may be empty only when a human
    creates a task. Agent-created tasks must supply progress.
-8. The board has Backlog, Ready, In Progress, Verification, Done, and Canceled.
+8. The board has Backlog, Ready, In Progress, Validation, Done, and Canceled.
    Canceled is immediately after Done and hidden by default behind a control
    that exposes its count. Cancellation cannot be reached through ordinary
    agent task movement.
 9. Ordinary task movement rejects `done`. The browser exposes an explicit
-   review-and-complete action for tasks in Verification; its human completion
-   endpoint enforces the existing verification-result and Git-checkpoint
-   gates. The CLI and agent skill can move completed work only to Verification.
+   review-and-complete action for tasks in Validation; its human completion
+   endpoint enforces the existing validation-result and Git-checkpoint gates.
+   The CLI and agent skill can move completed work only to Validation.
 10. A Board/Features workspace switch preserves the existing console visual
    system. The Features surface shows file setup, feature status/ID/content,
    linked tasks, edit/create/cancel/delete actions, empty/loading/error states,

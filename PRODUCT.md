@@ -12,7 +12,7 @@ The primary user is a human supervising Codex agents across local software repos
 
 ## Product Purpose
 
-Provide a durable, feature-led local Kanban board that lets the human control requirements and completion while agents preserve enough task context to hand work back and forth without losing progress, decisions, verification evidence, or repository state.
+Provide a durable, feature-led local Kanban board that lets the human control requirements and completion while agents preserve enough task context to hand work back and forth without losing progress, decisions, validation evidence, or repository state.
 
 ## Positioning
 
@@ -24,13 +24,13 @@ The app runs only on the user's machine. A typical installation manages 1–10 r
 
 ## Capabilities and Constraints
 
-- Six workflow columns: Backlog, Ready, In Progress, Verification, Done, and Canceled. Canceled follows Done and stays hidden until the human exposes it.
+- Six workflow columns: Backlog, Ready, In Progress, Validation, Done, and Canceled. Canceled follows Done and stays hidden until the human exposes it.
 - Desktop drag-and-drop is required in v1.
 - Keyboard and explicit move controls provide an accessible alternative; touch drag-and-drop is outside v1.
 - Every project starts by importing a local directory. The browser confirms an existing human-provided `FEATURES.md` or saves a new one to the project directory before enabling the board and agent workflow. Agents never edit the file directly.
 - Agents groom one feature at a time in document order: clarify ambiguity, propose an ID and complete task set, wait for human approval, then create linked agent-owned tasks through the app.
-- Every task records task/acceptance criteria, decisions, verification notes/status, and a Git checkpoint. Progress/next action is optional for a human-created task, but required for agent-created tasks.
-- Agents may move tasks through Verification only. A human browser review is the sole path into Done. Human feature cancellation moves all of its tasks to Canceled with a recorded reason.
+- Every task records task/acceptance criteria, decisions, validation notes/status, and a Git checkpoint. Progress/next action is optional for a human-created task, but required for agent-created tasks.
+- Agents may move tasks through Validation only. A human browser review is the sole path into Done. Human feature cancellation moves all of its tasks to Canceled with a recorded reason.
 - Git integration is read-only and never commits, resets, or modifies a repository.
 - The server binds only to `127.0.0.1`; persistent data remains local.
 - V1 is single-user and assumes one active writer at a time.
