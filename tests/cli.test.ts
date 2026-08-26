@@ -17,7 +17,11 @@ async function startServer(handler: (request: RecordedRequest) => unknown) {
     request.on('end', () => {
       const text = Buffer.concat(chunks).toString();
       const body = text.length > 0 ? JSON.parse(text) : undefined;
-      const result = handler({ method: request.method, path: request.url, body });
+      const result = handler({
+        method: request.method,
+        path: request.url,
+        body,
+      });
       response.writeHead(200, { 'Content-Type': 'application/json' });
       response.end(JSON.stringify(result));
     });
@@ -29,42 +33,50 @@ async function startServer(handler: (request: RecordedRequest) => unknown) {
     server.listen(0, '127.0.0.1', resolve);
   });
   const address = server.address();
-  if (!address || typeof address === 'string') throw new Error('Test server failed to bind.');
+  if (!address || typeof address === 'string')
+    throw new Error('Test server failed to bind.');
   return `http://127.0.0.1:${address.port}`;
 }
 
 function runCli(args: string[], url?: string) {
-  return new Promise<{ code: number | null; stdout: string; stderr: string }>((resolve) => {
-    const child = spawn(
-      process.execPath,
-      ['--import', 'tsx', 'bin/kanban.ts', ...args],
-      {
-        cwd: process.cwd(),
-        env: { ...process.env, ...(url ? { KANBAN_URL: url } : {}) },
-      },
-    );
-    let stdout = '';
-    let stderr = '';
-    child.stdout.on('data', (chunk) => {
-      stdout += chunk;
-    });
-    child.stderr.on('data', (chunk) => {
-      stderr += chunk;
-    });
-    child.on('close', (code) => resolve({ code, stdout, stderr }));
-  });
+  return new Promise<{ code: number | null; stdout: string; stderr: string }>(
+    (resolve) => {
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', 'bin/kanban.ts', ...args],
+        {
+          cwd: process.cwd(),
+          env: { ...process.env, ...(url ? { KANBAN_URL: url } : {}) },
+        },
+      );
+      let stdout = '';
+      let stderr = '';
+      child.stdout.on('data', (chunk) => {
+        stdout += chunk;
+      });
+      child.stderr.on('data', (chunk) => {
+        stderr += chunk;
+      });
+      child.on('close', (code) => resolve({ code, stdout, stderr }));
+    },
+  );
 }
 
 afterEach(async () => {
   await Promise.all(
-    servers.splice(0).map(
-      (server) => new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve()))),
-    ),
+    servers
+      .splice(0)
+      .map(
+        (server) =>
+          new Promise<void>((resolve, reject) =>
+            server.close((error) => (error ? reject(error) : resolve())),
+          ),
+      ),
   );
 });
 
 describe('kanban CLI', () => {
-  it('adds projects with a server-selected default path or an explicit path', async () => {
+  it('requires an explicit local directory when adding a project', async () => {
     const requests: RecordedRequest[] = [];
     const url = await startServer((request) => {
       requests.push(request);
@@ -77,16 +89,13 @@ describe('kanban CLI', () => {
       };
     });
 
-    const defaultPath = await runCli(
-      ['project', 'add', '--name', 'Demo project', '--json'],
+    const missingPath = await runCli(
+      ['project', 'add', '--name', 'Demo project'],
       url,
     );
-    expect(defaultPath).toMatchObject({ code: 0, stderr: '' });
-    expect(requests[0]).toEqual({
-      method: 'POST',
-      path: '/api/projects',
-      body: { name: 'Demo project' },
-    });
+    expect(missingPath.code).toBe(1);
+    expect(missingPath.stderr).toContain('Missing required flag --path.');
+    expect(requests).toHaveLength(0);
 
     const explicitPath = await runCli(
       [
@@ -101,7 +110,7 @@ describe('kanban CLI', () => {
       url,
     );
     expect(explicitPath).toMatchObject({ code: 0, stderr: '' });
-    expect(requests[1]).toEqual({
+    expect(requests[0]).toEqual({
       method: 'POST',
       path: '/api/projects',
       body: { name: 'Demo project', repoPath: '/custom/demo' },
@@ -109,7 +118,7 @@ describe('kanban CLI', () => {
 
     const help = await runCli(['help']);
     expect(help.stdout).toContain(
-      'kanban project add --name <name> [--path <directory>] [--json]',
+      'kanban project add --name <name> --path <directory> [--json]',
     );
   });
 
@@ -134,7 +143,10 @@ describe('kanban CLI', () => {
       return { features: document };
     });
 
-    const listed = await runCli(['feature', 'list', '--project', 'project-1', '--json'], url);
+    const listed = await runCli(
+      ['feature', 'list', '--project', 'project-1', '--json'],
+      url,
+    );
     expect(listed).toMatchObject({ code: 0, stderr: '' });
     expect(JSON.parse(listed.stdout)).toEqual(document);
 
@@ -151,7 +163,9 @@ describe('kanban CLI', () => {
     const url = await startServer((request) => {
       requests.push(request);
       if (request.path === '/api/projects/project-1/features/0/assign-id') {
-        return { feature: { index: 0, id: 'FEAT-001', title: 'First feature' } };
+        return {
+          feature: { index: 0, id: 'FEAT-001', title: 'First feature' },
+        };
       }
       if (request.path === '/api/projects/project-1/tasks') {
         return { task: { id: 'task-1', title: 'Implement first feature' } };
@@ -160,11 +174,21 @@ describe('kanban CLI', () => {
     });
 
     const missingApproval = await runCli(
-      ['feature', 'assign-id', '--project', 'project-1', '0', '--id', 'FEAT-001'],
+      [
+        'feature',
+        'assign-id',
+        '--project',
+        'project-1',
+        '0',
+        '--id',
+        'FEAT-001',
+      ],
       url,
     );
     expect(missingApproval.code).toBe(1);
-    expect(missingApproval.stderr).toContain('requires explicit human approval');
+    expect(missingApproval.stderr).toContain(
+      'requires explicit human approval',
+    );
     expect(requests).toHaveLength(0);
 
     const assigned = await runCli(
@@ -244,11 +268,15 @@ describe('kanban CLI', () => {
       'Not run yet.',
     ]);
     expect(missingProgress.code).toBe(1);
-    expect(missingProgress.stderr).toContain('Missing required flag --progress.');
+    expect(missingProgress.stderr).toContain(
+      'Missing required flag --progress.',
+    );
 
     const done = await runCli(['task', 'move', 'task-1', 'done']);
     expect(done.code).toBe(1);
-    expect(done.stderr).toContain('Only human browser review can move a task to Done.');
+    expect(done.stderr).toContain(
+      'Only human browser review can move a task to Done.',
+    );
 
     const canceled = await runCli(['task', 'move', 'task-1', 'canceled']);
     expect(canceled.code).toBe(1);

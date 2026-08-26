@@ -96,6 +96,12 @@ const emptyTask = {
   featureId: '',
 };
 
+function directoryBasename(path: string) {
+  const normalized = path.trim().replace(/[\\/]+$/, '');
+  const basename = normalized.split(/[\\/]/).filter(Boolean).pop();
+  return basename === '~' ? '' : basename || '';
+}
+
 async function api<T>(url: string, init?: RequestInit): Promise<T> {
   const response = await fetch(url, {
     ...init,
@@ -278,14 +284,13 @@ function ProjectDialog({
   const dialogRef = useRef<HTMLDialogElement>(null);
   const [name, setName] = useState('');
   const [repoPath, setRepoPath] = useState('');
-  const [pathTouched, setPathTouched] = useState(false);
-  const [suggesting, setSuggesting] = useState(false);
+  const [nameTouched, setNameTouched] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState('');
   function resetAndClose() {
     setName('');
     setRepoPath('');
-    setPathTouched(false);
+    setNameTouched(false);
     setError('');
     onClose();
   }
@@ -294,34 +299,6 @@ function ProjectDialog({
     if (open && !dialog?.open) dialog?.showModal();
     if (!open && dialog?.open) dialog.close();
   }, [open]);
-  useEffect(() => {
-    if (!open || !name.trim() || pathTouched) return;
-    const controller = new AbortController();
-    const timeout = window.setTimeout(async () => {
-      setSuggesting(true);
-      try {
-        setRepoPath(
-          (
-            await api<{ path: string }>(
-              `/api/projects/suggest-path?name=${encodeURIComponent(name)}`,
-              { signal: controller.signal },
-            )
-          ).path,
-        );
-      } catch (caught) {
-        if ((caught as Error).name !== 'AbortError')
-          setError(
-            'Could not suggest a directory. Enter a custom directory instead.',
-          );
-      } finally {
-        setSuggesting(false);
-      }
-    }, 180);
-    return () => {
-      controller.abort();
-      window.clearTimeout(timeout);
-    };
-  }, [name, open, pathTouched]);
   async function submit(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
@@ -329,14 +306,11 @@ function ProjectDialog({
     try {
       const { project } = await api<{ project: Project }>('/api/projects', {
         method: 'POST',
-        body: JSON.stringify({
-          name,
-          ...(pathTouched && repoPath ? { repoPath } : {}),
-        }),
+        body: JSON.stringify({ name, repoPath }),
       });
       setName('');
       setRepoPath('');
-      setPathTouched(false);
+      setNameTouched(false);
       onCreated(project);
     } catch (caught) {
       setError(
@@ -351,10 +325,10 @@ function ProjectDialog({
       <form onSubmit={submit}>
         <div className="dialog-heading">
           <div>
-            <h2>Add a local project</h2>
+            <h2>Import local directory</h2>
             <p>
-              Start from a project name. Agent Kanban suggests a directory under{' '}
-              <code>~/projects</code> and creates it if needed.
+              Choose a new or existing directory. Agent Kanban creates it when
+              needed, then checks its requirements.
             </p>
           </div>
           <button
@@ -367,30 +341,30 @@ function ProjectDialog({
           </button>
         </div>
         <label>
-          Project name
-          <input
-            value={name}
-            onChange={(event) => setName(event.target.value)}
-            autoFocus
-            required
-          />
-        </label>
-        <label>
           Local directory path
           <span className="field-note">
-            {suggesting
-              ? 'Updating suggestion…'
-              : pathTouched
-                ? 'Custom path — it must already exist.'
-                : 'Suggested and created on save.'}
+            New directories are created; existing directories are imported.
           </span>
           <input
             value={repoPath}
             onChange={(event) => {
-              setRepoPath(event.target.value);
-              setPathTouched(true);
+              const nextPath = event.target.value;
+              setRepoPath(nextPath);
+              if (!nameTouched) setName(directoryBasename(nextPath));
             }}
-            placeholder="~/projects/project-name"
+            autoFocus
+            required
+            placeholder="/path/to/project"
+          />
+        </label>
+        <label>
+          Project name
+          <input
+            value={name}
+            onChange={(event) => {
+              setName(event.target.value);
+              setNameTouched(true);
+            }}
             required
           />
         </label>
@@ -411,9 +385,10 @@ function ProjectDialog({
           <button
             type="submit"
             className="primary-button"
-            disabled={saving || !name.trim()}
+            disabled={saving || !name.trim() || !repoPath.trim()}
           >
-            {saving && <LoaderCircle className="spin" size={15} />}Add project
+            {saving && <LoaderCircle className="spin" size={15} />}Import
+            directory
           </button>
         </div>
       </form>
@@ -832,6 +807,7 @@ function FeaturesWorkspace({
   refresh,
   refreshTasks,
   onDocument,
+  onProject,
   onNotice,
 }: {
   project: Project;
@@ -842,6 +818,7 @@ function FeaturesWorkspace({
   refresh: () => Promise<void>;
   refreshTasks: () => Promise<void>;
   onDocument: (document: FeaturesDocument) => void;
+  onProject: (project: Project) => void;
   onNotice: (notice: string) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -882,11 +859,16 @@ function FeaturesWorkspace({
   async function saveFile(event: FormEvent) {
     event.preventDefault();
     setSaving(true);
+    setActionError('');
     try {
-      const { features } = await api<{ features: FeaturesDocument }>(
-        `/api/projects/${project.id}/features-file`,
-        { method: 'PUT', body: JSON.stringify({ markdown: draft }) },
-      );
+      const { project: updatedProject, features } = await api<{
+        project: Project;
+        features: FeaturesDocument;
+      }>(`/api/projects/${project.id}/features-file`, {
+        method: 'PUT',
+        body: JSON.stringify({ markdown: draft }),
+      });
+      onProject(updatedProject);
       onDocument(features);
       onNotice('FEATURES.md saved locally.');
     } catch (caught) {
@@ -898,6 +880,31 @@ function FeaturesWorkspace({
     } finally {
       setSaving(false);
     }
+  }
+  async function confirmFile() {
+    setSaving(true);
+    setActionError('');
+    try {
+      const { project: updatedProject, features } = await api<{
+        project: Project;
+        features: FeaturesDocument;
+      }>(`/api/projects/${project.id}/features-file`, { method: 'POST' });
+      onProject(updatedProject);
+      onDocument(features);
+      onNotice('FEATURES.md confirmed. The project is ready for grooming.');
+    } catch (caught) {
+      setActionError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not confirm FEATURES.md.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+  async function refreshFile() {
+    setActionError('');
+    await refresh();
   }
   async function saveFeature(event: FormEvent) {
     event.preventDefault();
@@ -992,6 +999,55 @@ function FeaturesWorkspace({
         <p>Reading local requirements…</p>
       </div>
     );
+  if (document?.exists && project.featuresConfirmedAt === null)
+    return (
+      <section className="features-onboarding features-confirmation">
+        <div className="file-path">
+          <strong>FEATURES.md found</strong>
+          <code>{document.path}</code>
+        </div>
+        <h1>Confirm these requirements.</h1>
+        <p>
+          We found {document.features.length} detected{' '}
+          {document.features.length === 1 ? 'feature' : 'features'} in this
+          local file. Review it, then confirm that it is the project’s source of
+          truth.
+        </p>
+        <div className="feature-file-preview" aria-label="FEATURES.md preview">
+          <div>
+            <strong>Read-only preview</strong>
+            <span>{document.features.length} detected</span>
+          </div>
+          <pre>{document.markdown || 'This FEATURES.md file is empty.'}</pre>
+        </div>
+        {(actionError || error) && (
+          <p className="form-error" role="alert">
+            <CircleAlert size={15} />
+            {actionError || error}
+          </p>
+        )}
+        <div className="onboarding-actions">
+          <button
+            type="button"
+            className="secondary-button"
+            onClick={() => void refreshFile()}
+            disabled={saving}
+          >
+            <RefreshCw size={15} />
+            Refresh
+          </button>
+          <button
+            type="button"
+            className="primary-button"
+            onClick={confirmFile}
+            disabled={saving}
+          >
+            {saving && <LoaderCircle className="spin" size={15} />}
+            Use this FEATURES.md
+          </button>
+        </div>
+      </section>
+    );
   if (!document?.exists)
     return (
       <section className="features-onboarding">
@@ -1004,7 +1060,12 @@ function FeaturesWorkspace({
           FEATURES.md is the single source of truth. Agents can read and groom
           it, but only the human UI can write it.
         </p>
-        <button type="button" className="secondary-button" onClick={refresh}>
+        <button
+          type="button"
+          className="secondary-button"
+          onClick={() => void refreshFile()}
+          disabled={saving}
+        >
           <RefreshCw size={15} />
           Refresh for external file
         </button>
@@ -1378,6 +1439,7 @@ export default function Home() {
     useSensor(KeyboardSensor),
   );
   const project = projects.find((item) => item.id === selectedId) ?? null;
+  const requirementsPending = project?.featuresConfirmedAt === null;
   const drawerTask = tasks.find((task) => task.id === drawerId) ?? null;
   const activeTask = tasks.find((task) => task.id === activeId) ?? null;
   const loadTasks = useCallback(
@@ -1389,14 +1451,13 @@ export default function Home() {
   );
   const loadFeatures = useCallback(async (id: string) => {
     setFeaturesLoading(true);
+    setDocument(null);
     try {
-      setDocument(
-        (
-          await api<{ features: FeaturesDocument }>(
-            `/api/projects/${id}/features`,
-          )
-        ).features,
+      const { features } = await api<{ features: FeaturesDocument }>(
+        `/api/projects/${id}/features`,
       );
+      setDocument(features);
+      setError('');
     } catch (caught) {
       setError(
         caught instanceof Error
@@ -1418,6 +1479,7 @@ export default function Home() {
           ) ?? listed[0];
         if (first) {
           setSelectedId(first.id);
+          if (first.featuresConfirmedAt === null) setWorkspace('features');
           await Promise.all([loadTasks(first.id), loadFeatures(first.id)]);
         }
       })
@@ -1435,9 +1497,14 @@ export default function Home() {
     }, 1500);
     return () => window.clearInterval(interval);
   }, [loadTasks, selectedId]);
-  async function chooseProject(id: string) {
+  async function chooseProject(id: string, target?: Project) {
     setSelectedId(id);
     window.localStorage.setItem('agent-kanban-project', id);
+    const nextProject = target ?? projects.find((item) => item.id === id);
+    if (nextProject?.featuresConfirmedAt === null) setWorkspace('features');
+    setTasks([]);
+    setDocument(null);
+    setError('');
     setLoading(true);
     try {
       await Promise.all([loadTasks(id), loadFeatures(id)]);
@@ -1457,6 +1524,11 @@ export default function Home() {
     );
     setDrawerId(task.id);
     setCreating(false);
+  }
+  function replaceProject(updated: Project) {
+    setProjects((current) =>
+      current.map((item) => (item.id === updated.id ? updated : item)),
+    );
   }
   async function dragEnd(event: DragEndEvent) {
     setActiveId(null);
@@ -1548,14 +1620,19 @@ export default function Home() {
               className="icon-button"
               type="button"
               onClick={() => setProjectDialogOpen(true)}
-              aria-label="Add project"
+              aria-label="Import local directory"
             >
               <Settings2 size={17} />
             </button>
             <button
               className="primary-button"
               type="button"
-              disabled={!project}
+              disabled={!project || requirementsPending}
+              aria-describedby={
+                requirementsPending
+                  ? 'requirements-confirmation-gate'
+                  : undefined
+              }
               onClick={() => setCreating(true)}
             >
               <Plus size={16} />
@@ -1586,6 +1663,12 @@ export default function Home() {
                   type="button"
                   className={workspace === 'board' ? 'is-active' : ''}
                   onClick={() => setWorkspace('board')}
+                  disabled={requirementsPending}
+                  aria-describedby={
+                    requirementsPending
+                      ? 'requirements-confirmation-gate'
+                      : undefined
+                  }
                 >
                   Board
                 </button>
@@ -1598,12 +1681,23 @@ export default function Home() {
                 </button>
               </nav>
               <span>
-                {workspace === 'board'
-                  ? 'Drag cards through active work · review explicitly to finish'
-                  : 'FEATURES.md is the requirements source of truth'}
+                {requirementsPending ? (
+                  <span
+                    className="requirements-gate"
+                    id="requirements-confirmation-gate"
+                    role="status"
+                  >
+                    Confirm FEATURES.md in Features to unlock the Board and new
+                    tasks.
+                  </span>
+                ) : workspace === 'board' ? (
+                  'Drag cards through active work · review explicitly to finish'
+                ) : (
+                  'FEATURES.md is the requirements source of truth'
+                )}
               </span>
             </div>
-            {workspace === 'board' && (
+            {workspace === 'board' && !requirementsPending && (
               <div className="board-tools">
                 <button
                   type="button"
@@ -1654,18 +1748,18 @@ export default function Home() {
           <div className="first-run-state">
             <h1>Connect your first local project</h1>
             <p>
-              Start with a project name and Agent Kanban will prepare its local
-              directory.
+              Import a new or existing local directory, then confirm its
+              requirements file.
             </p>
             <button
               className="primary-button"
               onClick={() => setProjectDialogOpen(true)}
             >
               <Plus size={16} />
-              Add project
+              Import local directory
             </button>
           </div>
-        ) : workspace === 'features' ? (
+        ) : workspace === 'features' || requirementsPending ? (
           <FeaturesWorkspace
             project={project}
             document={document}
@@ -1675,6 +1769,7 @@ export default function Home() {
             refresh={() => loadFeatures(project.id)}
             refreshTasks={() => loadTasks(project.id)}
             onDocument={setDocument}
+            onProject={replaceProject}
             onNotice={setNotice}
           />
         ) : (
@@ -1726,7 +1821,7 @@ export default function Home() {
           setProjects((current) => [...current, created]);
           setProjectDialogOpen(false);
           setWorkspace('features');
-          chooseProject(created.id);
+          void chooseProject(created.id, created);
         }}
       />
       {project && (creating || drawerTask) && (

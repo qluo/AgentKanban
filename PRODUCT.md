@@ -27,7 +27,7 @@ The app runs only on the user's machine. A typical installation manages 1–10 r
 - Six workflow columns: Backlog, Ready, In Progress, Verification, Done, and Canceled. Canceled follows Done and stays hidden until the human exposes it.
 - Desktop drag-and-drop is required in v1.
 - Keyboard and explicit move controls provide an accessible alternative; touch drag-and-drop is outside v1.
-- A project starts with human-provided `FEATURES.md`; the browser can save it to the project directory and sync its features for browsing and management. Agents never edit the file directly.
+- Every project starts by importing a local directory. The browser confirms an existing human-provided `FEATURES.md` or saves a new one to the project directory before enabling the board and agent workflow. Agents never edit the file directly.
 - Agents groom one feature at a time in document order: clarify ambiguity, propose an ID and complete task set, wait for human approval, then create linked agent-owned tasks through the app.
 - Every task records task/acceptance criteria, decisions, verification notes/status, and a Git checkpoint. Progress/next action is optional for a human-created task, but required for agent-created tasks.
 - Agents may move tasks through Verification only. A human browser review is the sole path into Done. Human feature cancellation moves all of its tasks to Canceled with a recorded reason.

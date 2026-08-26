@@ -20,6 +20,10 @@ Set `KANBAN_URL` only when the user runs the server at a non-default local URL. 
 - Read `FEATURES.md` only through the Agent Kanban app or CLI; run `feature list
   --project <project-id> --json` to obtain the app's parsed feature data and raw
   document state.
+- Do not assign feature IDs or create agent tasks until the human has confirmed
+  the imported project's existing `FEATURES.md` or created it in the browser.
+  Treat a confirmation error as a request for human action, not something to
+  bypass through another endpoint.
 - Never create, edit, cancel, delete, or write `FEATURES.md` directly. The human
   UI owns feature editing and cancellation.
 - Tasks linked to a feature are implementation records, not a replacement for

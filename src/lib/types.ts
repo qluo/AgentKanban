@@ -18,16 +18,13 @@ export const VERIFICATION_STATUSES = [
 
 export type VerificationStatus = (typeof VERIFICATION_STATUSES)[number];
 
-export type CheckpointState =
-  | 'not_captured'
-  | 'captured'
-  | 'not_git'
-  | 'error';
+export type CheckpointState = 'not_captured' | 'captured' | 'not_git' | 'error';
 
 export interface Project {
   id: string;
   name: string;
   repoPath: string;
+  featuresConfirmedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -60,7 +57,7 @@ export interface Task {
 
 export interface CreateProjectInput {
   name: string;
-  repoPath?: string;
+  repoPath: string;
 }
 
 export interface CreateTaskInput {

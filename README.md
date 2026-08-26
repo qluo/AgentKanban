@@ -14,6 +14,13 @@ modifies Git state.
 - npm
 - Git, if you want task checkpoint capture for registered repositories
 
+Confirm that the active shell resolves a supported runtime before installing:
+
+```bash
+node --version
+npm --version
+```
+
 ## Quick start
 
 ```bash
@@ -46,15 +53,18 @@ give the web server and SQLite connection an opportunity to close normally.
 
 ## Set up your first project
 
-1. Select **Add project** in the web app.
-2. Enter a project name. Agent Kanban proposes
-   `~/projects/<project-name>` and creates that directory if it does not exist.
-3. To register an existing repository instead, enter its absolute directory
-   path. A custom path must already exist.
-4. Provide the project's `FEATURES.md` when prompted:
-   - place the file in the registered project directory and select **Refresh**;
-     or
-   - paste its contents into the web app and save it locally.
+1. Select **Import project** in the web app.
+2. Enter the local directory. Agent Kanban imports it when it exists or creates
+   it when it does not. The project name is inferred from the directory name
+   and remains editable.
+3. Agent Kanban checks the project root for `FEATURES.md`:
+   - when it exists, review the detected requirements and select
+     **Use this FEATURES.md**;
+   - when it is missing, paste its contents into the web app and save it, or
+     add the file externally and select **Refresh**.
+
+The Board and agent task workflow become available after the requirements file
+is confirmed or created.
 
 Each level-two Markdown heading is treated as a feature:
 
@@ -93,12 +103,35 @@ Codex after installing the skill.
 ## Use the CLI
 
 The CLI talks to the same local API as the browser, so the web server must be
-running.
+running. Run these commands from the Agent Kanban repository root:
 
 ```bash
 npm run kanban -- project list --json
 npm run kanban -- feature list --project <project-id> --json
 npm run kanban -- task list --project <project-id> --json
+```
+
+When your terminal is in another project, use npm's `--prefix` option with the
+absolute path to your Agent Kanban checkout:
+
+```bash
+npm --prefix /absolute/path/to/AgentKanban run kanban -- project list --json
+```
+
+For frequent use, add the following to your shell profile and replace the
+checkout path with your installation location:
+
+```bash
+export AGENT_KANBAN_DIR="/absolute/path/to/AgentKanban"
+kanban() {
+  npm --prefix "$AGENT_KANBAN_DIR" run kanban -- "$@"
+}
+```
+
+After reloading the shell, the CLI can be called from any directory:
+
+```bash
+kanban project list --json
 ```
 
 Run the following command for the complete command reference:
@@ -151,10 +184,26 @@ npm run build
 
 - **The CLI cannot connect:** start the web app and confirm that
   `http://127.0.0.1:3210` opens locally.
+- **npm cannot find `package.json`:** run the command from the Agent Kanban
+  checkout, or use `npm --prefix /absolute/path/to/AgentKanban run kanban -- …`
+  from another directory.
 - **Port 3210 is already in use:** stop the other process before starting Agent
   Kanban. The bundled scripts intentionally use a fixed loopback address and
   port.
 - **A native SQLite module fails after changing Node versions:** remove and
   reinstall dependencies with `npm ci` under a supported Node.js version.
-- **A custom project path is rejected:** create the directory first or omit the
-  path and let Agent Kanban create the suggested directory under `~/projects`.
+- **macOS reports a missing `libicui18n` library:** Homebrew is launching an
+  older Node binary linked to an ICU version that is no longer installed. If
+  `node@22` is installed, select it in the current shell and retry:
+
+  ```bash
+  export PATH="$(brew --prefix node@22)/bin:$PATH"
+  hash -r
+  node --version
+  npm --version
+  ```
+
+  Add the same `export PATH=...` line to your shell profile (for example,
+  `~/.zshrc`) to make the selection persistent.
+- **A project path is rejected:** make sure its parent directory is writable
+  and the resolved path is a directory rather than a file.

@@ -1,6 +1,11 @@
 #!/usr/bin/env -S npx tsx
 
-import type { Project, Task, TaskColumn, VerificationStatus } from '../src/lib/types';
+import type {
+  Project,
+  Task,
+  TaskColumn,
+  VerificationStatus,
+} from '../src/lib/types';
 
 const baseUrl = process.env.KANBAN_URL ?? 'http://127.0.0.1:3210';
 const AGENT_MOVABLE_COLUMNS = [
@@ -66,12 +71,19 @@ async function request<T>(path: string, init?: RequestInit): Promise<T> {
       headers: { 'Content-Type': 'application/json', ...init?.headers },
     });
   } catch {
-    throw new Error(`Agent Kanban is not reachable at ${baseUrl}. Start the local server first.`);
+    throw new Error(
+      `Agent Kanban is not reachable at ${baseUrl}. Start the local server first.`,
+    );
   }
   const body = response.status === 204 ? null : await response.json();
   if (!response.ok) {
-    const detail = body as { error?: string; issues?: Record<string, string> } | null;
-    throw new Error(detail?.error ?? `Request failed with status ${response.status}.`);
+    const detail = body as {
+      error?: string;
+      issues?: Record<string, string>;
+    } | null;
+    throw new Error(
+      detail?.error ?? `Request failed with status ${response.status}.`,
+    );
   }
   return body as T;
 }
@@ -90,7 +102,9 @@ function print(value: unknown, json: boolean) {
       if ('repoPath' in item) {
         console.log(`${item.id}\t${item.name}\t${item.repoPath}`);
       } else {
-        console.log(`${item.reference}\t${item.column}\t${item.title}\t${item.id}`);
+        console.log(
+          `${item.reference}\t${item.column}\t${item.title}\t${item.id}`,
+        );
       }
     }
     return;
@@ -109,7 +123,9 @@ function printFeatures(value: FeaturesDocument, json: boolean) {
   }
   for (const feature of value.features) {
     const identifier = feature.id ?? `unassigned@${feature.index}`;
-    console.log(`${identifier}\t${feature.status ?? 'active'}\t${feature.title}`);
+    console.log(
+      `${identifier}\t${feature.status ?? 'active'}\t${feature.title}`,
+    );
   }
 }
 
@@ -119,7 +135,9 @@ function featureMatches(feature: Feature, selector: string) {
 
 function requiredFeatureIndex(value: string | undefined) {
   if (!value || !/^\d+$/.test(value)) {
-    throw new Error('Feature ID assignment requires a zero-based feature index.');
+    throw new Error(
+      'Feature ID assignment requires a zero-based feature index.',
+    );
   }
   return Number(value);
 }
@@ -129,7 +147,7 @@ function help() {
 
 Usage:
   kanban project list [--json]
-  kanban project add --name <name> [--path <directory>] [--json]
+  kanban project add --name <name> --path <directory> [--json]
   kanban feature list --project <project-id> [--json]
   kanban feature show --project <project-id> <feature-id|index> [--json]
   kanban feature assign-id --project <project-id> <feature-index> --id <FEAT-001> --approved [--json]
@@ -155,18 +173,18 @@ async function main() {
   }
 
   if (entity === 'project' && action === 'list') {
-    const { projects } = await request<{ projects: Project[] }>('/api/projects');
+    const { projects } = await request<{ projects: Project[] }>(
+      '/api/projects',
+    );
     print(projects, json);
     return;
   }
 
   if (entity === 'project' && action === 'add') {
-    const repoPath = flags.path;
-    if (repoPath === true) throw new Error('Missing value for optional flag --path.');
-    const payload: { name: string; repoPath?: string } = {
+    const payload = {
       name: required(flags, 'name'),
+      repoPath: required(flags, 'path'),
     };
-    if (typeof repoPath === 'string') payload.repoPath = repoPath;
     const { project } = await request<{ project: Project }>('/api/projects', {
       method: 'POST',
       body: JSON.stringify(payload),
@@ -191,8 +209,11 @@ async function main() {
     const { features } = await request<FeaturesResponse>(
       `/api/projects/${projectId}/features`,
     );
-    const feature = features.features.find((item) => featureMatches(item, selector));
-    if (!feature) throw new Error(`Feature ${selector} was not found in this project.`);
+    const feature = features.features.find((item) =>
+      featureMatches(item, selector),
+    );
+    if (!feature)
+      throw new Error(`Feature ${selector} was not found in this project.`);
     print(feature, json);
     return;
   }
@@ -201,7 +222,9 @@ async function main() {
     const projectId = required(flags, 'project');
     const featureIndex = requiredFeatureIndex(positional[0]);
     if (flags.approved !== true) {
-      throw new Error('Feature ID assignment requires explicit human approval via --approved.');
+      throw new Error(
+        'Feature ID assignment requires explicit human approval via --approved.',
+      );
     }
     const { feature } = await request<{ feature: Feature }>(
       `/api/projects/${projectId}/features/${featureIndex}/assign-id`,
@@ -216,7 +239,9 @@ async function main() {
 
   if (entity === 'task' && action === 'list') {
     const projectId = required(flags, 'project');
-    const { tasks } = await request<{ tasks: Task[] }>(`/api/projects/${projectId}/tasks`);
+    const { tasks } = await request<{ tasks: Task[] }>(
+      `/api/projects/${projectId}/tasks`,
+    );
     print(tasks, json);
     return;
   }
@@ -236,15 +261,19 @@ async function main() {
       progress: required(flags, 'progress'),
       decisions: required(flags, 'decisions'),
       verificationNotes: required(flags, 'verification-notes'),
-      verificationStatus: (flags['verification-status'] ?? 'not_run') as VerificationStatus,
+      verificationStatus: (flags['verification-status'] ??
+        'not_run') as VerificationStatus,
       featureId: required(flags, 'feature'),
       createdBy: 'agent' as const,
     };
     const projectId = required(flags, 'project');
-    const { task } = await request<{ task: Task }>(`/api/projects/${projectId}/tasks`, {
-      method: 'POST',
-      body: JSON.stringify(payload),
-    });
+    const { task } = await request<{ task: Task }>(
+      `/api/projects/${projectId}/tasks`,
+      {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      },
+    );
     print(task, json);
     return;
   }
@@ -262,7 +291,8 @@ async function main() {
     };
     const payload: Record<string, string> = {};
     for (const [flag, field] of Object.entries(mapping)) {
-      if (typeof flags[flag] === 'string') payload[field] = flags[flag] as string;
+      if (typeof flags[flag] === 'string')
+        payload[field] = flags[flag] as string;
     }
     const { task } = await request<{ task: Task }>(`/api/tasks/${taskId}`, {
       method: 'PATCH',
@@ -274,7 +304,8 @@ async function main() {
 
   if (entity === 'task' && action === 'move') {
     const [taskId, column] = positional;
-    if (!taskId || !column) throw new Error('Usage: kanban task move <task-id> <column>.');
+    if (!taskId || !column)
+      throw new Error('Usage: kanban task move <task-id> <column>.');
     if (
       !AGENT_MOVABLE_COLUMNS.includes(
         column as (typeof AGENT_MOVABLE_COLUMNS)[number],
@@ -284,16 +315,21 @@ async function main() {
         throw new Error('Only human browser review can move a task to Done.');
       }
       if (column === 'canceled') {
-        throw new Error('Only feature cancellation can move a task to Canceled.');
+        throw new Error(
+          'Only feature cancellation can move a task to Canceled.',
+        );
       }
       throw new Error(
         `Task movement is limited to ${AGENT_MOVABLE_COLUMNS.join(', ')}.`,
       );
     }
-    const { task } = await request<{ task: Task }>(`/api/tasks/${taskId}/move`, {
-      method: 'POST',
-      body: JSON.stringify({ column }),
-    });
+    const { task } = await request<{ task: Task }>(
+      `/api/tasks/${taskId}/move`,
+      {
+        method: 'POST',
+        body: JSON.stringify({ column }),
+      },
+    );
     print(task, json);
     return;
   }
@@ -301,9 +337,12 @@ async function main() {
   if (entity === 'task' && action === 'checkpoint') {
     const taskId = positional[0];
     if (!taskId) throw new Error('Missing task id.');
-    const { task } = await request<{ task: Task }>(`/api/tasks/${taskId}/checkpoint`, {
-      method: 'POST',
-    });
+    const { task } = await request<{ task: Task }>(
+      `/api/tasks/${taskId}/checkpoint`,
+      {
+        method: 'POST',
+      },
+    );
     print(task, json);
     return;
   }

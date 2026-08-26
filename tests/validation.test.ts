@@ -3,6 +3,7 @@ import type { Task } from '@/src/lib/types';
 import {
   ValidationError,
   validateCreateTaskInput,
+  validateProjectInput,
   validateUpdateTaskInput,
   validateTransition,
 } from '@/src/lib/validation';
@@ -34,6 +35,21 @@ const baseTask: Task = {
 };
 
 describe('task validation', () => {
+  it('requires a human project name and local directory path', () => {
+    expect(() => validateProjectInput({ name: 'Imported project' })).toThrow(
+      'repoPath is required',
+    );
+    expect(
+      validateProjectInput({
+        name: ' Imported project ',
+        repoPath: ' ~/work/app ',
+      }),
+    ).toEqual({
+      name: 'Imported project',
+      repoPath: '~/work/app',
+    });
+  });
+
   it('requires every written continuity field', () => {
     expect(() =>
       validateCreateTaskInput({
@@ -115,10 +131,7 @@ describe('task validation', () => {
 
   it('blocks Done until verification and a checkpoint are recorded', () => {
     expect(() =>
-      validateTransition(
-        { ...baseTask, verificationStatus: 'passed' },
-        'done',
-      ),
+      validateTransition({ ...baseTask, verificationStatus: 'passed' }, 'done'),
     ).toThrow('Capture a Git checkpoint');
   });
 

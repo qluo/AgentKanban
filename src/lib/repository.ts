@@ -39,6 +39,7 @@ function mapProject(row: Row): Project {
     id: row.id as string,
     name: row.name as string,
     repoPath: row.repo_path as string,
+    featuresConfirmedAt: (row.features_confirmed_at as string | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
@@ -67,41 +68,45 @@ function mapTask(row: Row): Task {
     gitSha: (row.git_sha as string | null) ?? null,
     gitDirty: row.git_dirty === null ? null : Boolean(row.git_dirty),
     checkpointError: (row.checkpoint_error as string | null) ?? null,
-    checkpointCapturedAt:
-      (row.checkpoint_captured_at as string | null) ?? null,
+    checkpointCapturedAt: (row.checkpoint_captured_at as string | null) ?? null,
     createdAt: row.created_at as string,
     updatedAt: row.updated_at as string,
   };
 }
 
 export function listProjects(db: Database.Database) {
-  return (db.prepare('SELECT * FROM projects ORDER BY name').all() as Row[]).map(
-    mapProject,
-  );
+  return (
+    db.prepare('SELECT * FROM projects ORDER BY name').all() as Row[]
+  ).map(mapProject);
 }
 
 export function getProject(db: Database.Database, id: string) {
   const row = db.prepare('SELECT * FROM projects WHERE id = ?').get(id) as
-    | Row
-    | undefined;
+    Row | undefined;
   if (!row) throw new NotFoundError('Project not found.');
   return mapProject(row);
 }
 
 export function createProject(db: Database.Database, rawInput: unknown) {
   const input: CreateProjectInput = validateProjectInput(rawInput);
-  const shouldCreatePath = !input.repoPath;
-  const resolvedPath = path.resolve(input.repoPath ?? suggestProjectPath(input.name));
+  const expandedPath =
+    input.repoPath === '~'
+      ? homedir()
+      : input.repoPath.startsWith('~/')
+        ? path.join(homedir(), input.repoPath.slice(2))
+        : input.repoPath;
+  const resolvedPath = path.resolve(expandedPath);
   let repoPath: string;
   try {
-    if (shouldCreatePath) mkdirSync(resolvedPath, { recursive: true });
+    mkdirSync(resolvedPath, { recursive: true });
     if (!statSync(resolvedPath).isDirectory()) {
       throw new Error('not a directory');
     }
     repoPath = realpathSync(resolvedPath);
   } catch {
     throw new ValidationError({
-      repoPath: 'Repository path must be an existing directory.',
+      repoPath:
+        'Repository path must be a local directory or a creatable directory path.',
     });
   }
 
@@ -110,14 +115,18 @@ export function createProject(db: Database.Database, rawInput: unknown) {
     id: randomUUID(),
     name: input.name,
     repoPath,
+    featuresConfirmedAt: null,
     createdAt: timestamp,
     updatedAt: timestamp,
   };
 
   try {
     db.prepare(
-      `INSERT INTO projects (id, name, repo_path, created_at, updated_at)
-       VALUES (@id, @name, @repoPath, @createdAt, @updatedAt)`,
+      `INSERT INTO projects (
+        id, name, repo_path, features_confirmed_at, created_at, updated_at
+      ) VALUES (
+        @id, @name, @repoPath, @featuresConfirmedAt, @createdAt, @updatedAt
+      )`,
     ).run(project);
   } catch (error) {
     if (error instanceof Error && error.message.includes('UNIQUE')) {
@@ -128,6 +137,23 @@ export function createProject(db: Database.Database, rawInput: unknown) {
     throw error;
   }
   return project;
+}
+
+export function confirmProjectFeatures(db: Database.Database, id: string) {
+  getProject(db, id);
+  const timestamp = now();
+  db.prepare(
+    'UPDATE projects SET features_confirmed_at = ?, updated_at = ? WHERE id = ?',
+  ).run(timestamp, timestamp, id);
+  return getProject(db, id);
+}
+
+export function assertRequirementsConfirmed(project: Project) {
+  if (!project.featuresConfirmedAt) {
+    throw new ValidationError({
+      features: 'Confirm FEATURES.md before starting the agent workflow.',
+    });
+  }
 }
 
 export function listTasks(db: Database.Database, projectId: string) {
@@ -143,8 +169,7 @@ export function listTasks(db: Database.Database, projectId: string) {
 
 export function getTask(db: Database.Database, id: string) {
   const row = db.prepare('SELECT * FROM tasks WHERE id = ?').get(id) as
-    | Row
-    | undefined;
+    Row | undefined;
   if (!row) throw new NotFoundError('Task not found.');
   return mapTask(row);
 }
@@ -152,10 +177,13 @@ export function getTask(db: Database.Database, id: string) {
 export function createTask(db: Database.Database, rawInput: unknown) {
   const input: CreateTaskInput = validateCreateTaskInput(rawInput);
   const project = getProject(db, input.projectId);
+  if (input.createdBy === 'agent') assertRequirementsConfirmed(project);
   if (input.featureId) {
     const feature = getFeatureById(project.repoPath, input.featureId);
     if (feature.status !== 'active') {
-      throw new ValidationError({ featureId: 'Tasks can only link to active features.' });
+      throw new ValidationError({
+        featureId: 'Tasks can only link to active features.',
+      });
     }
   }
   const timestamp = now();
@@ -216,7 +244,9 @@ export function updateTask(
   }
 
   fields.push('updated_at = @updatedAt');
-  db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = @id`).run(params);
+  db.prepare(`UPDATE tasks SET ${fields.join(', ')} WHERE id = @id`).run(
+    params,
+  );
   return getTask(db, id);
 }
 
@@ -227,7 +257,8 @@ export function moveTask(
 ) {
   if (destination === 'done' || destination === 'canceled') {
     throw new ValidationError({
-      column: 'Done and Canceled require their dedicated human or feature workflow.',
+      column:
+        'Done and Canceled require their dedicated human or feature workflow.',
     });
   }
   const transaction = db.transaction(() => {
@@ -252,7 +283,9 @@ export function moveTask(
 export function completeTask(db: Database.Database, id: string) {
   const task = getTask(db, id);
   if (task.column !== 'verification') {
-    throw new ValidationError({ column: 'Only tasks in Verification can be completed.' });
+    throw new ValidationError({
+      column: 'Only tasks in Verification can be completed.',
+    });
   }
   validateTransition(task, 'done');
   const position = (
@@ -267,16 +300,6 @@ export function completeTask(db: Database.Database, id: string) {
     'UPDATE tasks SET column_id = ?, position = ?, updated_at = ? WHERE id = ?',
   ).run('done', position, now(), id);
   return getTask(db, id);
-}
-
-export function suggestProjectPath(name: string, homeDirectory = homedir()) {
-  const slug = name
-    .normalize('NFKD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '') || 'project';
-  return path.join(homeDirectory, 'projects', slug);
 }
 
 export function listTaskSummariesForFeature(

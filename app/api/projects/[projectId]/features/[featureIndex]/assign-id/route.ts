@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getDatabase } from '@/src/lib/db';
 import { assignApprovedFeatureId } from '@/src/lib/features';
 import { assertLocalRequest, handleApiError } from '@/src/lib/http';
-import { getProject } from '@/src/lib/repository';
+import { assertRequirementsConfirmed, getProject } from '@/src/lib/repository';
 import { ValidationError } from '@/src/lib/validation';
 
 export const runtime = 'nodejs';
@@ -19,8 +19,13 @@ export async function POST(request: NextRequest, context: Context) {
     }
     const db = getDatabase();
     const project = getProject(db, projectId);
+    assertRequirementsConfirmed(project);
     return NextResponse.json({
-      feature: assignApprovedFeatureId(project.repoPath, featureIndex, await request.json()),
+      feature: assignApprovedFeatureId(
+        project.repoPath,
+        featureIndex,
+        await request.json(),
+      ),
     });
   } catch (error) {
     return handleApiError(error);

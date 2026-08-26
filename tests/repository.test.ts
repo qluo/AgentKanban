@@ -1,9 +1,16 @@
-import { mkdtempSync, mkdirSync, rmSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  realpathSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabase } from '@/src/lib/db';
 import {
+  confirmProjectFeatures,
   createProject,
   createTask,
   completeTask,
@@ -29,6 +36,31 @@ afterEach(() => {
 });
 
 describe('repository', () => {
+  it('imports local directories, creating a missing directory with unconfirmed requirements', () => {
+    const root = temporaryRoot();
+    const repoPath = path.join(root, 'new-project');
+    const db = createDatabase(':memory:');
+
+    const project = createProject(db, { name: 'New project', repoPath });
+
+    expect(project).toMatchObject({
+      name: 'New project',
+      repoPath: realpathSync(repoPath),
+      featuresConfirmedAt: null,
+    });
+    expect(() => mkdirSync(repoPath)).toThrow();
+    expect(() => createProject(db, { name: 'Duplicate', repoPath })).toThrow(
+      'already registered',
+    );
+
+    const filePath = path.join(root, 'not-a-directory');
+    writeFileSync(filePath, 'not a directory');
+    expect(() =>
+      createProject(db, { name: 'File path', repoPath: filePath }),
+    ).toThrow('Repository path must be a local directory');
+    db.close();
+  });
+
   it('persists multiple projects and tasks across a database restart', () => {
     const root = temporaryRoot();
     const dbPath = path.join(root, 'kanban.sqlite');
@@ -100,8 +132,22 @@ describe('repository', () => {
       decisions: 'Human-owned.',
       verificationNotes: 'Not run yet.',
     });
+    expect(() =>
+      createTask(db, {
+        projectId: project.id,
+        createdBy: 'agent',
+        title: 'Agent task',
+        task: 'Keep a concrete next action.',
+        progress: 'Run the next check.',
+        decisions: 'Agent-owned.',
+        verificationNotes: 'Not run yet.',
+      }),
+    ).toThrow('Confirm FEATURES.md');
+
+    writeFileSync(path.join(repoPath, 'FEATURES.md'), '## Ownership\n');
+    const confirmed = confirmProjectFeatures(db, project.id);
     const agentTask = createTask(db, {
-      projectId: project.id,
+      projectId: confirmed.id,
       createdBy: 'agent',
       title: 'Agent task',
       task: 'Keep a concrete next action.',
@@ -110,13 +156,16 @@ describe('repository', () => {
       verificationNotes: 'Not run yet.',
     });
 
-    expect(updateTask(db, humanTask.id, { progress: ' \n ' }).progress).toBe('');
+    expect(updateTask(db, humanTask.id, { progress: ' \n ' }).progress).toBe(
+      '',
+    );
     expect(() => updateTask(db, agentTask.id, { progress: '' })).toThrow(
       'progress is required',
     );
-    expect(listTasks(db, project.id).find((task) => task.id === agentTask.id)?.progress).toBe(
-      'Run the next check.',
-    );
+    expect(
+      listTasks(db, project.id).find((task) => task.id === agentTask.id)
+        ?.progress,
+    ).toBe('Run the next check.');
     db.close();
   });
 });

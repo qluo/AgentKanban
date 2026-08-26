@@ -14,6 +14,7 @@ function initialize(db: Database.Database) {
       id TEXT PRIMARY KEY,
       name TEXT NOT NULL,
       repo_path TEXT NOT NULL UNIQUE,
+      features_confirmed_at TEXT,
       created_at TEXT NOT NULL,
       updated_at TEXT NOT NULL
     );
@@ -48,6 +49,7 @@ function initialize(db: Database.Database) {
 
   `);
 
+  migrateProjects(db);
   migrateTasks(db);
   db.exec(`
     CREATE INDEX IF NOT EXISTS idx_tasks_project_feature
@@ -55,21 +57,43 @@ function initialize(db: Database.Database) {
   `);
 }
 
+function projectColumns(db: Database.Database) {
+  return new Set(
+    (
+      db.prepare('PRAGMA table_info(projects)').all() as Array<{ name: string }>
+    ).map(({ name }) => name),
+  );
+}
+
+function migrateProjects(db: Database.Database) {
+  if (projectColumns(db).has('features_confirmed_at')) return;
+
+  db.transaction(() => {
+    db.exec('ALTER TABLE projects ADD COLUMN features_confirmed_at TEXT');
+    db.exec(
+      'UPDATE projects SET features_confirmed_at = created_at WHERE features_confirmed_at IS NULL',
+    );
+  })();
+}
+
 function taskColumns(db: Database.Database) {
   return new Set(
-    (db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>).map(
-      ({ name }) => name,
-    ),
+    (
+      db.prepare('PRAGMA table_info(tasks)').all() as Array<{ name: string }>
+    ).map(({ name }) => name),
   );
 }
 
 function migrateTasks(db: Database.Database) {
   const columns = taskColumns(db);
-  const schema = (
-    db.prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'").get() as
-      | { sql: string }
-      | undefined
-  )?.sql ?? '';
+  const schema =
+    (
+      db
+        .prepare(
+          "SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'tasks'",
+        )
+        .get() as { sql: string } | undefined
+    )?.sql ?? '';
   const requiresRebuild =
     !columns.has('feature_id') ||
     !columns.has('created_by') ||
@@ -116,7 +140,7 @@ function migrateTasks(db: Database.Database) {
         ) SELECT
           number, id, project_id,
           ${columns.has('feature_id') ? 'feature_id' : 'NULL'},
-          ${columns.has('created_by') ? "created_by" : "'human'"},
+          ${columns.has('created_by') ? 'created_by' : "'human'"},
           ${columns.has('cancellation_reason') ? 'cancellation_reason' : 'NULL'},
           title, column_id, position, task, progress, decisions,
           verification_status, verification_notes, checkpoint_state, git_branch,

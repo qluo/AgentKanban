@@ -4,7 +4,7 @@ import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabase } from '@/src/lib/db';
-import { listTasks } from '@/src/lib/repository';
+import { getProject, listTasks } from '@/src/lib/repository';
 
 const temporaryRoots: string[] = [];
 
@@ -15,7 +15,8 @@ function temporaryRoot() {
 }
 
 afterEach(() => {
-  for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of temporaryRoots.splice(0))
+    rmSync(root, { recursive: true, force: true });
 });
 
 describe('task schema migration', () => {
@@ -40,19 +41,26 @@ describe('task schema migration', () => {
         checkpoint_captured_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
       );
     `);
-    legacy.prepare(
-      `INSERT INTO projects VALUES ('project-1', 'Legacy', '/tmp/legacy', '2026-01-01', '2026-01-01')`,
-    ).run();
-    legacy.prepare(
-      `INSERT INTO tasks (
+    legacy
+      .prepare(
+        `INSERT INTO projects VALUES ('project-1', 'Legacy', '/tmp/legacy', '2026-01-01', '2026-01-01')`,
+      )
+      .run();
+    legacy
+      .prepare(
+        `INSERT INTO tasks (
         id, project_id, title, column_id, position, task, progress, decisions,
         verification_status, verification_notes, checkpoint_state, created_at, updated_at
       ) VALUES ('task-1', 'project-1', 'Keep me', 'done', 7, 'Old task', 'Done', 'SQLite', 'passed', 'Passed', 'captured', '2026-01-01', '2026-01-01')`,
-    ).run();
+      )
+      .run();
     legacy.close();
 
     const migrated = createDatabase(databasePath);
     const task = listTasks(migrated, 'project-1')[0];
+    expect(getProject(migrated, 'project-1').featuresConfirmedAt).toBe(
+      '2026-01-01',
+    );
     expect(task).toMatchObject({
       id: 'task-1',
       title: 'Keep me',
@@ -62,7 +70,11 @@ describe('task schema migration', () => {
       createdBy: 'human',
       cancellationReason: null,
     });
-    const sql = (migrated.prepare("SELECT sql FROM sqlite_master WHERE name = 'tasks'").get() as { sql: string }).sql;
+    const sql = (
+      migrated
+        .prepare("SELECT sql FROM sqlite_master WHERE name = 'tasks'")
+        .get() as { sql: string }
+    ).sql;
     expect(sql).toContain("'canceled'");
     migrated.close();
   });

@@ -19,7 +19,11 @@ export class ValidationError extends Error {
   }
 }
 
-function requiredText(value: unknown, label: string, issues: Record<string, string>) {
+function requiredText(
+  value: unknown,
+  label: string,
+  issues: Record<string, string>,
+) {
   if (typeof value !== 'string' || value.trim().length === 0) {
     issues[label] = `${label} is required.`;
     return '';
@@ -44,10 +48,7 @@ export function validateProjectInput(input: unknown): CreateProjectInput {
   const value = (input ?? {}) as Record<string, unknown>;
   const issues: Record<string, string> = {};
   const name = requiredText(value.name, 'name', issues);
-  const repoPath =
-    value.repoPath === undefined || value.repoPath === null || value.repoPath === ''
-      ? undefined
-      : requiredText(value.repoPath, 'repoPath', issues);
+  const repoPath = requiredText(value.repoPath, 'repoPath', issues);
   if (Object.keys(issues).length > 0) throw new ValidationError(issues);
   return { name, repoPath };
 }
@@ -58,7 +59,8 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
   const projectId = requiredText(value.projectId, 'projectId', issues);
   const title = requiredText(value.title, 'title', issues);
   const task = requiredText(value.task, 'task', issues);
-  const createdBy = (value.createdBy ?? 'human') as CreateTaskInput['createdBy'];
+  const createdBy = (value.createdBy ??
+    'human') as CreateTaskInput['createdBy'];
   if (createdBy !== 'human' && createdBy !== 'agent') {
     issues.createdBy = 'createdBy must be human or agent.';
   }
@@ -76,7 +78,9 @@ export function validateCreateTaskInput(input: unknown): CreateTaskInput {
   const verificationStatus = (value.verificationStatus ??
     'not_run') as VerificationStatus;
   const featureId =
-    value.featureId === undefined || value.featureId === null || value.featureId === ''
+    value.featureId === undefined ||
+    value.featureId === null ||
+    value.featureId === ''
       ? undefined
       : requiredText(value.featureId, 'featureId', issues);
 

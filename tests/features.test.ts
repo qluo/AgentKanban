@@ -1,4 +1,10 @@
-import { mkdtempSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
+import {
+  mkdtempSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -9,7 +15,12 @@ import {
   getFeaturesDocument,
   saveFeaturesFile,
 } from '@/src/lib/features';
-import { createProject, createTask, listTasks } from '@/src/lib/repository';
+import {
+  confirmProjectFeatures,
+  createProject,
+  createTask,
+  listTasks,
+} from '@/src/lib/repository';
 
 const temporaryRoots: string[] = [];
 
@@ -24,18 +35,23 @@ function setup() {
 }
 
 afterEach(() => {
-  for (const root of temporaryRoots.splice(0)) rmSync(root, { recursive: true, force: true });
+  for (const root of temporaryRoots.splice(0))
+    rmSync(root, { recursive: true, force: true });
 });
 
 describe('FEATURES.md domain model', () => {
   it('preserves a preamble and feature bodies while assigning an explicitly approved ID', () => {
     const { db, project, repoPath } = setup();
-    const markdown = '# Product requirements\n\nKeep this preamble.\n\n## Sign in\n\nUsers can sign in.\n\n## Reports\n\nShow reports.\n';
+    const markdown =
+      '# Product requirements\n\nKeep this preamble.\n\n## Sign in\n\nUsers can sign in.\n\n## Reports\n\nShow reports.\n';
     saveFeaturesFile(repoPath, markdown);
-    expect(() => assignApprovedFeatureId(repoPath, 0, { id: 'FEAT-001' })).toThrow(
-      'approval assertion',
-    );
-    const assigned = assignApprovedFeatureId(repoPath, 0, { id: 'FEAT-001', approved: true });
+    expect(() =>
+      assignApprovedFeatureId(repoPath, 0, { id: 'FEAT-001' }),
+    ).toThrow('approval assertion');
+    const assigned = assignApprovedFeatureId(repoPath, 0, {
+      id: 'FEAT-001',
+      approved: true,
+    });
     expect(assigned.id).toBe('FEAT-001');
     const document = getFeaturesDocument(db, project.id, repoPath);
     expect(document.features[0]).toMatchObject({
@@ -51,7 +67,11 @@ describe('FEATURES.md domain model', () => {
 
   it('cancels all linked tasks and writes cancellation metadata', () => {
     const { db, project, repoPath } = setup();
-    writeFileSync(path.join(repoPath, 'FEATURES.md'), '## [FEAT-001] Search\n\nSearch the catalog.\n');
+    writeFileSync(
+      path.join(repoPath, 'FEATURES.md'),
+      '## [FEAT-001] Search\n\nSearch the catalog.\n',
+    );
+    confirmProjectFeatures(db, project.id);
     const task = createTask(db, {
       projectId: project.id,
       featureId: 'FEAT-001',
@@ -62,10 +82,15 @@ describe('FEATURES.md domain model', () => {
       decisions: 'Use indexed queries.',
       verificationNotes: 'Not run yet.',
     });
-    cancelFeature(db, project.id, repoPath, 0, { reason: 'No longer in scope' });
-    expect(listTasks(db, project.id).find((item) => item.id === task.id)).toMatchObject({
+    cancelFeature(db, project.id, repoPath, 0, {
+      reason: 'No longer in scope',
+    });
+    expect(
+      listTasks(db, project.id).find((item) => item.id === task.id),
+    ).toMatchObject({
       column: 'canceled',
-      cancellationReason: 'Parent feature FEAT-001 was canceled: No longer in scope',
+      cancellationReason:
+        'Parent feature FEAT-001 was canceled: No longer in scope',
     });
     const markdown = readFileSync(path.join(repoPath, 'FEATURES.md'), 'utf8');
     expect(markdown).toContain('"status":"canceled"');
