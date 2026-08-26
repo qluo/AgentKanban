@@ -20,6 +20,9 @@ file, and asks the Tech Lead to begin.
   cards to Validators, return failed Validation → Ready, and reopen Done →
   Ready only at human request.
 - Cancel only with explicit human request or confirmation and record the reason.
+- After each card reaches Done, check in only that card's changes on a focused
+  branch, create its pull request, link the PR to the card, and report it to the
+  human. Never bundle unrelated cards into one PR.
 
 **Implementor — senior engineer (for example, Terra-high/medium)**
 
