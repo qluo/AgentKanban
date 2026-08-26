@@ -807,6 +807,7 @@ function FeaturesWorkspace({
   refreshTasks,
   onDocument,
   onProject,
+  onOpenTask,
   onNotice,
 }: {
   project: Project;
@@ -818,6 +819,7 @@ function FeaturesWorkspace({
   refreshTasks: () => Promise<void>;
   onDocument: (document: FeaturesDocument) => void;
   onProject: (project: Project) => void;
+  onOpenTask: (task: Task) => void;
   onNotice: (notice: string) => void;
 }) {
   const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
@@ -1310,15 +1312,21 @@ function FeaturesWorkspace({
                 <ul>
                   {linked.map((task) => (
                     <li key={task.id}>
-                      <div>
-                        <strong>
-                          {task.reference} · {task.title}
-                        </strong>
-                        <span>
-                          {task.progress || 'No next action recorded yet.'}
-                        </span>
-                      </div>
-                      <em>{labels[task.column]}</em>
+                      <button
+                        type="button"
+                        className="linked-task-button"
+                        onClick={() => onOpenTask(task)}
+                      >
+                        <div>
+                          <strong>
+                            {task.reference} · {task.title}
+                          </strong>
+                          <span>
+                            {task.progress || 'No next action recorded yet.'}
+                          </span>
+                        </div>
+                        <em>{labels[task.column]}</em>
+                      </button>
                     </li>
                   ))}
                 </ul>
@@ -1769,6 +1777,7 @@ export default function Home() {
             refreshTasks={() => loadTasks(project.id)}
             onDocument={setDocument}
             onProject={replaceProject}
+            onOpenTask={(task) => setDrawerId(task.id)}
             onNotice={setNotice}
           />
         ) : (

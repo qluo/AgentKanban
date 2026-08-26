@@ -1014,24 +1014,39 @@ select:focus {
   list-style: none;
 }
 .linked-tasks li {
+  margin: 0;
+}
+.linked-task-button {
   display: flex;
+  align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding: 11px 0;
+  width: 100%;
+  padding: 11px 8px;
+  border: 0;
   border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: inherit;
+  text-align: left;
+  transition: background 140ms ease;
 }
-.linked-tasks li div {
+.linked-task-button:hover {
+  background: var(--panel);
+}
+.linked-task-button div {
   display: grid;
   gap: 3px;
+  min-width: 0;
 }
-.linked-tasks li strong {
+.linked-task-button strong {
   font-size: 12px;
 }
-.linked-tasks li span {
+.linked-task-button span {
   color: var(--muted);
   font-size: 11px;
 }
-.linked-tasks li em {
+.linked-task-button em {
+  flex: 0 0 auto;
   color: var(--faint);
   font-size: 10px;
   font-style: normal;
