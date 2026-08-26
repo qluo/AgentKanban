@@ -100,6 +100,21 @@ Run those commands from the Agent Kanban repository root. If a file or link
 already exists at the destination, inspect it before replacing it. Restart
 Codex after installing the skill.
 
+## Add the agent workflow to a project
+
+The Tech Lead, Implementor, Validator, task-contract, and board-transition
+instructions are defined in [`AGENTS.md`](AGENTS.md).
+
+For each project managed with Agent Kanban:
+
+- if the project has no `AGENTS.md`, copy this repository's `AGENTS.md` into
+  the project root;
+- if the project already has an `AGENTS.md`, append the **Agent Kanban
+  Workflow** instructions to it without replacing its existing project rules.
+
+Review the combined file for conflicting role or transition instructions before
+asking the Tech Lead to begin planning.
+
 ## Use the CLI
 
 The CLI talks to the same local API as the browser, so the web server must be
