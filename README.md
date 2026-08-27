@@ -21,7 +21,34 @@ node --version
 npm --version
 ```
 
-## Quick start
+## Quick start with Codex
+
+Ask Codex to install the `kanban-manager` skill from this repository:
+
+```text
+Use $skill-installer to install https://github.com/qluo/AgentKanban/tree/main/skills/kanban-manager
+```
+
+Start a new Codex turn after installation, then initialize Agent Kanban:
+
+```text
+$kanban-manager init
+```
+
+The skill clones the app to `$HOME/Documents/AgentKanban` by default, verifies
+Node.js and npm, and installs the locked dependencies. Set `AGENT_KANBAN_DIR`
+before invoking the skill when you want a different installation directory.
+
+Launch the local web app:
+
+```text
+$kanban-manager start
+```
+
+The skill starts the server only when needed and confirms that
+[http://127.0.0.1:3210](http://127.0.0.1:3210) is responding.
+
+## Manual quick start
 
 ```bash
 git clone https://github.com/qluo/AgentKanban.git
@@ -107,13 +134,22 @@ Exported absolute paths, credentials, environment values, source files, and UI
 state are never included. Task IDs are retained; visible `KAN-###` references
 are retained when they do not conflict with tasks already in the destination.
 
-## Install the Codex skill
+## Use the Codex skill
 
-The optional `kanban-manager` skill teaches Codex how to groom features and
-keep task handoffs synchronized with the running app.
+The `kanban-manager` skill handles app installation and startup and teaches
+Codex how to groom features and keep task handoffs synchronized with the
+running app.
 
-For a checkout you plan to update with Git, symlink the skill so updates are
-picked up automatically:
+- `$kanban-manager init` safely clones and installs the app. It never replaces,
+  resets, or pulls an existing checkout.
+- `$kanban-manager start` starts the loopback-only development server or reports
+  that it is already running.
+- For board work, invoke `$kanban-manager` so Codex reads the registered
+  project's feature, task, and handoff state before acting.
+
+The GitHub installation shown in **Quick start with Codex** is recommended for
+ordinary use. For a checkout you actively update with Git, replace that
+installed copy with a symlink so skill updates are picked up automatically:
 
 ```bash
 mkdir -p "$HOME/.codex/skills"
