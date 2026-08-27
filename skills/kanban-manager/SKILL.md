@@ -14,7 +14,7 @@ These are skill commands, not commands provided by the Agent Kanban CLI.
 When the user invokes `kanban-manager init`:
 
 1. Resolve the installation directory from `AGENT_KANBAN_DIR` when it is set;
-   otherwise use `$HOME/AgentKanban`.
+   otherwise use `$HOME/Documents/AgentKanban`.
 2. If the directory does not exist, clone
    `https://github.com/qluo/AgentKanban.git` into it. If it already exists,
    verify that it is an Agent Kanban checkout; never overwrite, reset, clean,
@@ -55,8 +55,9 @@ Kanban checkout with the same directory rule used by init and start.
 npm --prefix "$AGENT_KANBAN_DIR" run kanban -- <command>
 ```
 
-When `AGENT_KANBAN_DIR` is unset, substitute `$HOME/AgentKanban` directly in
-the command rather than setting a persistent environment variable.
+When `AGENT_KANBAN_DIR` is unset, substitute
+`$HOME/Documents/AgentKanban` directly in the command rather than setting a
+persistent environment variable.
 
 Set `KANBAN_URL` only when the user runs the server at a non-default local URL. Never expose the app beyond a loopback address.
 
