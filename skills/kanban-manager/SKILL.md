@@ -1,17 +1,62 @@
 ---
 name: kanban-manager
-description: Manage coding-task continuity through the local Agent Kanban app. Use when Codex resumes, updates, moves, verifies, completes, or hands off work recorded on the user's local board. Do not use for unrelated task lists or when the user has not registered the project in Agent Kanban.
+description: Install, start, and manage coding-task continuity through the local Agent Kanban app. Use when the user invokes kanban-manager init or kanban-manager start, or when Codex resumes, updates, moves, validates, completes, or hands off work recorded on the user's local board. Do not use for unrelated task lists.
 ---
 
 # Kanban Manager
 
-Use the installed Agent Kanban CLI. The local server must be running. Replace
-`<agent-kanban-directory>` with the path to the user's local Agent Kanban
-checkout.
+Treat `kanban-manager init` and `$kanban-manager init` as the init command.
+Treat `kanban-manager start` and `$kanban-manager start` as the start command.
+These are skill commands, not commands provided by the Agent Kanban CLI.
+
+## Init command
+
+When the user invokes `kanban-manager init`:
+
+1. Resolve the installation directory from `AGENT_KANBAN_DIR` when it is set;
+   otherwise use `$HOME/AgentKanban`.
+2. If the directory does not exist, clone
+   `https://github.com/qluo/AgentKanban.git` into it. If it already exists,
+   verify that it is an Agent Kanban checkout; never overwrite, reset, clean,
+   or replace an existing directory.
+3. Verify Node.js 22.13 or newer and npm are available. Stop with the observed
+   versions and a concise remediation when the requirement is not met.
+4. Run `npm ci` in the checkout. Do not start the web app as part of init.
+5. Report the resolved installation directory and tell the user to invoke
+   `kanban-manager start` when they are ready to launch it.
+
+Do not pull or otherwise change an existing checkout during init. If its
+remote does not identify `qluo/AgentKanban`, stop and ask the user to choose a
+different installation directory.
+
+## Start command
+
+When the user invokes `kanban-manager start`:
+
+1. Resolve the checkout using the same rule as init and verify its
+   `package.json` exists.
+2. Check whether `http://127.0.0.1:3210` already serves Agent Kanban. If it
+   does, do not launch a duplicate process; report that the app is running.
+3. Otherwise run `npm run dev` from the checkout, keep the process available
+   for the session, and wait for the ready signal.
+4. Confirm that `http://127.0.0.1:3210` responds, then report the local URL.
+   Never bind the app to a non-loopback address.
+
+If the checkout is missing or dependencies are not installed, stop and direct
+the user to run `kanban-manager init`; do not silently perform init from the
+start command.
+
+## Use the CLI
+
+For board operations, the local server must be running. Resolve the Agent
+Kanban checkout with the same directory rule used by init and start.
 
 ```bash
-npm --prefix "<agent-kanban-directory>" run kanban -- <command>
+npm --prefix "$AGENT_KANBAN_DIR" run kanban -- <command>
 ```
+
+When `AGENT_KANBAN_DIR` is unset, substitute `$HOME/AgentKanban` directly in
+the command rather than setting a persistent environment variable.
 
 Set `KANBAN_URL` only when the user runs the server at a non-default local URL. Never expose the app beyond a loopback address.
 
