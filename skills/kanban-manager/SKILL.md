@@ -61,70 +61,21 @@ persistent environment variable.
 
 Set `KANBAN_URL` only when the user runs the server at a non-default local URL. Never expose the app beyond a loopback address.
 
-## Follow the project roles
+## Follow the project workflow
 
-Read the registered project's `AGENTS.md` before planning or changing board
-state. Humans communicate only with the Tech Lead; subagents report to it and
-never seek human decisions directly. For the Agent Kanban workflow:
+Before planning, changing code, or changing board state, read the registered
+project's `AGENTS.md`. It is authoritative for roles, task ownership,
+transitions, feature grooming, approvals, cancellation, validation, and
+post-Done Git and pull-request handling. If it is absent, ask the human for
+workflow direction rather than inventing one.
 
-- The Tech Lead owns planning, task contracts, delegation, rework, reopening,
-  and human-confirmed cancellation. It moves Backlog → Ready and may return
-  failed Validation → Ready; it reopens Done → Ready only at human request.
-- An Implementor accepts one delegated Ready card, reads its contract and
-  parent feature, and moves only Ready → In Progress → Validation.
-- A Validator accepts one delegated Validation card, reviews it independently,
-  records evidence, and moves Validation → Done with `task complete <task-id>`
-  when validation passes. On failure it leaves the card in Validation and
-  reports the blockers; it never fixes the implementation.
-- Each Implementor and Validator may hold only one active card. Refuse a
-  mismatched or multi-card assignment without changing code or board state.
-  Every delegation must name one card ID, role, and expected transition.
+Use the app or CLI to obtain the current feature data; do not write
+`FEATURES.md` directly. Do not assign feature IDs or create agent tasks until
+the app records that the project's feature file has been confirmed. Treat a
+confirmation error as a request for human action, not something to bypass.
 
-## Features are the requirements source of truth
-
-- Read `FEATURES.md` only through the Agent Kanban app or CLI; run `feature list
-  --project <project-id> --json` to obtain the app's parsed feature data and raw
-  document state.
-- Do not assign feature IDs or create agent tasks until the human has confirmed
-  the imported project's existing `FEATURES.md` or created it in the browser.
-  Treat a confirmation error as a request for human action, not something to
-  bypass through another endpoint.
-- Never create, edit, cancel, delete, or write `FEATURES.md` directly. The human
-  UI owns feature editing and cancellation.
-- Tasks linked to a feature are implementation records, not a replacement for
-  feature requirements.
-
-## Groom features sequentially
-
-Groom exactly one active feature at a time, in document order. Do not start the
-next feature until the current one is approved and persisted.
-
-1. Run `feature list --project <project-id> --json`, then `feature show --project
-   <project-id> <feature-id|index> --json` for the next ungroomed feature. Use
-   the zero-based document index for an unassigned feature.
-2. Ask focused clarifying questions when its scope, acceptance criteria, or
-   boundaries are unclear. Do not invent requirements to avoid asking.
-3. Propose one unique ID such as `FEAT-001` and the complete task set for that
-   feature. Every task contract must include scope, acceptance criteria,
-   dependencies, non-goals, constraints, and required validation. Also include
-   its title, progress, and next action. Show the complete proposal to the
-   human.
-4. Wait for explicit human approval. Approval must cover the proposed ID and
-   task set; a general request to plan work is not approval.
-5. After approval, ask the app to persist the ID with `feature assign-id
-   --project <project-id> <feature-index> --id <FEAT-001> --approved`. This is an
-   app-mediated approved write, not a direct mutation of `FEATURES.md`.
-6. Create every approved task with `task create --project <project-id> --feature
-   <feature-id> ... --progress <text>`. CLI-created tasks are agent-owned and
-   must always have progress and a next action.
-
-Complete this grooming cycle for every existing feature before delegating any
-development work. Never pause grooming to wait for implementation.
-
-Cancellation requires an explicit human request or confirmation. The Tech Lead
-records the reason and uses the supported app operation; for feature
-cancellation, the browser moves all linked tasks. Do not recreate canceled work
-or alter `FEATURES.md` directly.
+The CLI and database name the Validation column `verification`; the web app
+displays it as **Validation**. Use the CLI's internal name in commands.
 
 ## Resume work
 
@@ -141,10 +92,8 @@ or alter `FEATURES.md` directly.
 - Record commands or checks actually run and their outcomes. When validation was not run, retain an explicit reason and `not_run` status.
 - Use `task update <task-id>` for continuity text and `task move <task-id> <column>` for workflow state.
 - Moving to `verification` (the Validation column) requires a recorded
-  validation result. Only the Tech Lead may perform a human-confirmed
-  cancellation and must record its reason.
-- An independently assigned Validator moves a card from Validation → Done with
-  `task complete <task-id>` when the card contains passing validation evidence.
+  validation result. `task complete` requires passing validation evidence and a
+  checkpoint; use either operation only as authorized by `AGENTS.md`.
 - If a transition is rejected, update the missing continuity evidence; do not bypass validation.
 
 ## Handoff work
@@ -155,14 +104,8 @@ Before ending a work session:
 2. Update `--decisions` when an important choice was made; otherwise preserve the existing explicit entry.
 3. Update `--verification-status` and `--verification-notes` with validation checks run, results, failures, or an explicit reason they were not run.
 4. Run `task checkpoint <task-id> --json` after the final checks. This reads branch, commit SHA, and dirty state; it never commits or changes Git.
-5. Move the task only as supported by its evidence and role, then run `task
-   show <task-id> --json` and confirm the saved handoff. Implementors stop at
-   Validation; Validators use `task complete <task-id>` after validation
-   passes.
-6. Follow the project's `AGENTS.md` for post-Done Git handling. When it requires
-   a focused local commit only, do not push the branch or create a pull request.
-   Push or create a pull request only after an explicit human request; if one is
-   created, record it with `task update <task-id> --pull-request-url <url>` and
-   confirm it with `task show <task-id> --json`.
-
-Never commit, reset, clean, checkout, stage, or otherwise mutate Git merely to satisfy the board. An explicit dirty checkpoint is valid.
+5. Make only the board transition authorized by `AGENTS.md`, then run `task
+   show <task-id> --json` and confirm the saved handoff.
+6. Follow `AGENTS.md` for Git and pull-request work. When a pull request exists,
+   record it with `task update <task-id> --pull-request-url <url>` and confirm
+   it with `task show <task-id> --json`.
