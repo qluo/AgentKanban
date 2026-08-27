@@ -113,8 +113,10 @@ Before ending a work session:
    show <task-id> --json` and confirm the saved handoff. Implementors stop at
    Validation; Validators use `task complete <task-id>` after validation
    passes.
-6. After a Done card's focused pull request is created, the Tech Lead records it
-   with `task update <task-id> --pull-request-url <url>` and confirms the saved
-   link with `task show <task-id> --json`.
+6. Follow the project's `AGENTS.md` for post-Done Git handling. When it requires
+   a focused local commit only, do not push the branch or create a pull request.
+   Push or create a pull request only after an explicit human request; if one is
+   created, record it with `task update <task-id> --pull-request-url <url>` and
+   confirm it with `task show <task-id> --json`.
 
 Never commit, reset, clean, checkout, stage, or otherwise mutate Git merely to satisfy the board. An explicit dirty checkpoint is valid.
