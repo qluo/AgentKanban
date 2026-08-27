@@ -67,6 +67,7 @@ const columns: BoardColumn[] = [
   'done',
   'canceled',
 ];
+const TASK_POLL_INTERVAL_MS = 5_000;
 const labels: Record<BoardColumn, string> = {
   backlog: 'Backlog',
   ready: 'Ready',
@@ -1537,10 +1538,35 @@ export default function Home() {
   }, [loadFeatures, loadTasks]);
   useEffect(() => {
     if (!selectedId) return;
-    const interval = window.setInterval(() => {
+    let interval: number | undefined;
+    const poll = () => {
       loadTasks(selectedId).catch(() => undefined);
-    }, 1500);
-    return () => window.clearInterval(interval);
+    };
+    const startPolling = () => {
+      if (interval === undefined) {
+        interval = window.setInterval(poll, TASK_POLL_INTERVAL_MS);
+      }
+    };
+    const stopPolling = () => {
+      if (interval !== undefined) {
+        window.clearInterval(interval);
+        interval = undefined;
+      }
+    };
+    const handleVisibility = () => {
+      if (window.document.visibilityState === 'hidden') {
+        stopPolling();
+      } else {
+        poll();
+        startPolling();
+      }
+    };
+    handleVisibility();
+    window.document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      stopPolling();
+      window.document.removeEventListener('visibilitychange', handleVisibility);
+    };
   }, [loadTasks, selectedId]);
   async function chooseProject(id: string, target?: Project) {
     setSelectedId(id);

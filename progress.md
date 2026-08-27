@@ -33,3 +33,7 @@
   static code review instead. Live HTTP verification confirmed the app shell
   and a real project export with project, FEATURES.md, feature, and task JSONL
   records.
+- Lightweight cleanup removed unused drag-and-drop and Tailwind build
+  dependencies, replaced the required base reset locally, slows task polling
+  to five seconds, pauses it in hidden tabs, and ignores generated TypeScript
+  build state.
