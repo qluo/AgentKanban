@@ -6,18 +6,25 @@ import path from 'node:path';
 import { getFeatureById } from './features';
 import type {
   CheckpointState,
+  CreatePersonalTicketInput,
   CreateProjectInput,
   CreateTaskInput,
+  PersonalTicket,
+  PersonalTicketHorizon,
+  PersonalTicketStatus,
   Project,
   Task,
   TaskColumn,
+  UpdatePersonalTicketInput,
   UpdateTaskInput,
 } from './types';
 import {
   ValidationError,
+  validateCreatePersonalTicketInput,
   validateCreateTaskInput,
   validateProjectInput,
   validateTransition,
+  validateUpdatePersonalTicketInput,
   validateUpdateTaskInput,
 } from './validation';
 
@@ -75,10 +82,154 @@ function mapTask(row: Row): Task {
   };
 }
 
+function mapPersonalTicket(row: Row): PersonalTicket {
+  return {
+    id: row.id as string,
+    title: row.title as string,
+    notes: row.notes as string,
+    horizon: row.horizon as PersonalTicket['horizon'],
+    category: row.category as PersonalTicket['category'],
+    status: row.status as PersonalTicket['status'],
+    createdAt: row.created_at as string,
+    updatedAt: row.updated_at as string,
+    completedAt: (row.completed_at as string | null) ?? null,
+    canceledAt: (row.canceled_at as string | null) ?? null,
+  };
+}
+
 export function listProjects(db: Database.Database) {
   return (
     db.prepare('SELECT * FROM projects ORDER BY name').all() as Row[]
   ).map(mapProject);
+}
+
+export function listPersonalTickets(db: Database.Database) {
+  return (
+    db
+      .prepare(
+        `SELECT * FROM personal_tickets
+         ORDER BY CASE status WHEN 'active' THEN 0 WHEN 'completed' THEN 1 ELSE 2 END,
+                  updated_at DESC, id`,
+      )
+      .all() as Row[]
+  ).map(mapPersonalTicket);
+}
+
+export function getPersonalTicket(db: Database.Database, id: string) {
+  const row = db
+    .prepare('SELECT * FROM personal_tickets WHERE id = ?')
+    .get(id) as Row | undefined;
+  if (!row) throw new NotFoundError('Personal ticket not found.');
+  return mapPersonalTicket(row);
+}
+
+export function createPersonalTicket(db: Database.Database, rawInput: unknown) {
+  const input: CreatePersonalTicketInput = validateCreatePersonalTicketInput(rawInput);
+  const timestamp = now();
+  const id = randomUUID();
+  db.prepare(
+    `INSERT INTO personal_tickets (
+      id, title, notes, horizon, category, status, created_at, updated_at
+    ) VALUES (
+      @id, @title, @notes, @horizon, @category, 'active', @createdAt, @updatedAt
+    )`,
+  ).run({
+    ...input,
+    id,
+    createdAt: timestamp,
+    updatedAt: timestamp,
+  });
+  return getPersonalTicket(db, id);
+}
+
+export function updatePersonalTicket(
+  db: Database.Database,
+  id: string,
+  rawInput: unknown,
+) {
+  requireActivePersonalTicket(getPersonalTicket(db, id));
+  const input: UpdatePersonalTicketInput = validateUpdatePersonalTicketInput(rawInput);
+  const fields: string[] = [];
+  const params: Record<string, unknown> = { id, updatedAt: now() };
+  const columns: Record<keyof UpdatePersonalTicketInput, string> = {
+    title: 'title',
+    notes: 'notes',
+    horizon: 'horizon',
+    category: 'category',
+  };
+  for (const [key, value] of Object.entries(input)) {
+    const typedKey = key as keyof UpdatePersonalTicketInput;
+    fields.push(`${columns[typedKey]} = @${key}`);
+    params[key] = value;
+  }
+  fields.push('updated_at = @updatedAt');
+  db.prepare(
+    `UPDATE personal_tickets SET ${fields.join(', ')} WHERE id = @id`,
+  ).run(params);
+  return getPersonalTicket(db, id);
+}
+
+function requireActivePersonalTicket(ticket: PersonalTicket) {
+  if (ticket.status !== 'active') {
+    throw new ValidationError({ status: 'Only active tickets can be changed.' });
+  }
+}
+
+export function movePersonalTicket(
+  db: Database.Database,
+  id: string,
+  horizon: PersonalTicketHorizon,
+) {
+  const ticket = getPersonalTicket(db, id);
+  requireActivePersonalTicket(ticket);
+  return updatePersonalTicket(db, id, { horizon });
+}
+
+function setPersonalTicketStatus(
+  db: Database.Database,
+  id: string,
+  status: Exclude<PersonalTicketStatus, 'active'>,
+) {
+  const ticket = getPersonalTicket(db, id);
+  requireActivePersonalTicket(ticket);
+  const timestamp = now();
+  db.prepare(
+    `UPDATE personal_tickets SET
+      status = @status,
+      completed_at = @completedAt,
+      canceled_at = @canceledAt,
+      updated_at = @updatedAt
+     WHERE id = @id`,
+  ).run({
+    id,
+    status,
+    completedAt: status === 'completed' ? timestamp : null,
+    canceledAt: status === 'canceled' ? timestamp : null,
+    updatedAt: timestamp,
+  });
+  return getPersonalTicket(db, id);
+}
+
+export function completePersonalTicket(db: Database.Database, id: string) {
+  return setPersonalTicketStatus(db, id, 'completed');
+}
+
+export function cancelPersonalTicket(db: Database.Database, id: string) {
+  return setPersonalTicketStatus(db, id, 'canceled');
+}
+
+export function restorePersonalTicket(db: Database.Database, id: string) {
+  const ticket = getPersonalTicket(db, id);
+  if (ticket.status === 'active') {
+    throw new ValidationError({ status: 'Only completed or canceled tickets can be restored.' });
+  }
+  const timestamp = now();
+  db.prepare(
+    `UPDATE personal_tickets SET
+      status = 'active', completed_at = NULL, canceled_at = NULL, updated_at = ?
+     WHERE id = ?`,
+  ).run(timestamp, id);
+  return getPersonalTicket(db, id);
 }
 
 export function getProject(db: Database.Database, id: string) {

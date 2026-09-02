@@ -110,3 +110,47 @@ export interface Feature {
   status: 'active' | 'canceled';
   tasks: TaskSummary[];
 }
+
+export const PERSONAL_TICKET_HORIZONS = [
+  'today',
+  'this_week',
+  'this_month',
+] as const;
+
+export type PersonalTicketHorizon = (typeof PERSONAL_TICKET_HORIZONS)[number];
+
+export const PERSONAL_TICKET_CATEGORIES = ['work', 'personal'] as const;
+
+export type PersonalTicketCategory = (typeof PERSONAL_TICKET_CATEGORIES)[number];
+
+export const PERSONAL_TICKET_STATUSES = [
+  'active',
+  'completed',
+  'canceled',
+] as const;
+
+export type PersonalTicketStatus = (typeof PERSONAL_TICKET_STATUSES)[number];
+
+export interface PersonalTicket {
+  id: string;
+  title: string;
+  notes: string;
+  horizon: PersonalTicketHorizon;
+  category: PersonalTicketCategory;
+  status: PersonalTicketStatus;
+  createdAt: string;
+  updatedAt: string;
+  completedAt: string | null;
+  canceledAt: string | null;
+}
+
+export interface CreatePersonalTicketInput {
+  title: string;
+  notes?: string;
+  horizon?: PersonalTicketHorizon;
+  category?: PersonalTicketCategory;
+}
+
+export type UpdatePersonalTicketInput = Partial<
+  Pick<CreatePersonalTicketInput, 'title' | 'notes' | 'horizon' | 'category'>
+>;

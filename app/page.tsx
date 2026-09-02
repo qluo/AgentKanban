@@ -1,19 +1,28 @@
 'use client';
 
 import {
+  BookOpen,
+  BriefcaseBusiness,
   CheckCircle2,
   ChevronDown,
   CircleAlert,
   Download,
+  Dumbbell,
   Eye,
   EyeOff,
   ExternalLink,
   FolderGit2,
   GitBranch,
   GitCommitHorizontal,
+  GraduationCap,
+  Hammer,
+  Lightbulb,
   LoaderCircle,
+  Palette,
+  PencilLine,
   Plus,
   RefreshCw,
+  RotateCcw,
   Save,
   Upload,
   X,
@@ -28,13 +37,17 @@ import {
 } from 'react';
 import {
   type Feature,
+  type PersonalTicket,
+  type PersonalTicketCategory,
+  type PersonalTicketHorizon,
   type Project,
   type Task,
   type TaskColumn,
 } from '@/src/lib/types';
 
-type Workspace = 'board' | 'features';
+type Workspace = 'board' | 'features' | 'personal';
 type BoardColumn = TaskColumn;
+type PersonalColumn = PersonalTicketHorizon;
 type FeaturesDocument = {
   exists: boolean;
   path: string;
@@ -68,6 +81,12 @@ const columns: BoardColumn[] = [
   'canceled',
 ];
 const TASK_POLL_INTERVAL_MS = 5_000;
+const personalColumns: PersonalColumn[] = ['today', 'this_week', 'this_month'];
+const personalLabels: Record<PersonalColumn, string> = {
+  today: 'Today',
+  this_week: 'This Week',
+  this_month: 'This Month',
+};
 const labels: Record<BoardColumn, string> = {
   backlog: 'Backlog',
   ready: 'Ready',
@@ -76,6 +95,37 @@ const labels: Record<BoardColumn, string> = {
   done: 'Done',
   canceled: 'Canceled',
 };
+
+function personalTicketIconIndex(ticketId: string) {
+  let hash = 2166136261;
+  for (const character of ticketId) {
+    hash ^= character.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0) % 8;
+}
+
+function personalTicketGlyph(index: number) {
+  const props = { size: 19, strokeWidth: 1.8 };
+  switch (index) {
+    case 0:
+      return <BookOpen {...props} />;
+    case 1:
+      return <BriefcaseBusiness {...props} />;
+    case 2:
+      return <Dumbbell {...props} />;
+    case 3:
+      return <GraduationCap {...props} />;
+    case 4:
+      return <Hammer {...props} />;
+    case 5:
+      return <Lightbulb {...props} />;
+    case 6:
+      return <Palette {...props} />;
+    default:
+      return <PencilLine {...props} />;
+  }
+}
 function directoryBasename(path: string) {
   const normalized = path.trim().replace(/[\\/]+$/, '');
   const basename = normalized.split(/[\\/]/).filter(Boolean).pop();
@@ -1470,14 +1520,512 @@ function FeaturesWorkspace({
   );
 }
 
+function PersonalTicketForm({
+  ticket,
+  onClose,
+  onSaved,
+}: {
+  ticket: PersonalTicket | null;
+  onClose: () => void;
+  onSaved: (ticket: PersonalTicket) => void;
+}) {
+  const [title, setTitle] = useState(ticket?.title ?? '');
+  const [notes, setNotes] = useState(ticket?.notes ?? '');
+  const [horizon, setHorizon] = useState<PersonalTicketHorizon>(
+    ticket?.horizon ?? 'today',
+  );
+  const [category, setCategory] = useState<PersonalTicketCategory>(
+    ticket?.category ?? 'work',
+  );
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState('');
+
+  async function save(event: FormEvent) {
+    event.preventDefault();
+    setSaving(true);
+    setError('');
+    try {
+      const payload = { title, notes, horizon, category };
+      const result = ticket
+        ? await api<{ ticket: PersonalTicket }>(
+            `/api/personal-tickets/${ticket.id}`,
+            { method: 'PATCH', body: JSON.stringify(payload) },
+          )
+        : await api<{ ticket: PersonalTicket }>('/api/personal-tickets', {
+            method: 'POST',
+            body: JSON.stringify(payload),
+          });
+      onSaved(result.ticket);
+      onClose();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not save this ticket. Try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  async function cancelTicket() {
+    if (!ticket) return;
+    setSaving(true);
+    setError('');
+    try {
+      const { ticket: canceled } = await api<{ ticket: PersonalTicket }>(
+        `/api/personal-tickets/${ticket.id}/cancel`,
+        { method: 'POST' },
+      );
+      onSaved(canceled);
+      onClose();
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not cancel this ticket. Try again.',
+      );
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <>
+      <button
+        type="button"
+        aria-label="Close personal ticket form"
+        className="drawer-scrim is-open"
+        onClick={onClose}
+      />
+      <aside
+        className="task-drawer is-open personal-ticket-drawer"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="personal-ticket-form-title"
+      >
+        <form className="task-drawer-content" onSubmit={save}>
+          <header className="drawer-header">
+            <div>
+              <p>Personal ticket</p>
+              <h2 id="personal-ticket-form-title">
+                {ticket ? 'Edit ticket' : 'New ticket'}
+              </h2>
+            </div>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={onClose}
+              aria-label="Close personal ticket form"
+            >
+              <X size={18} />
+            </button>
+          </header>
+          <div className="drawer-body personal-ticket-form">
+            <label>
+              Title
+              <input
+                value={title}
+                onChange={(event) => setTitle(event.target.value)}
+                autoFocus
+                required
+                placeholder="What needs your attention?"
+              />
+            </label>
+            <label>
+              Notes <span className="field-note">Optional</span>
+              <textarea
+                value={notes}
+                onChange={(event) => setNotes(event.target.value)}
+                rows={5}
+                placeholder="Add the details you will need later."
+              />
+            </label>
+            <div className="personal-ticket-options">
+              <label>
+                Due day
+                <select
+                  value={horizon}
+                  onChange={(event) =>
+                    setHorizon(event.target.value as PersonalTicketHorizon)
+                  }
+                >
+                  {personalColumns.map((column) => (
+                    <option key={column} value={column}>
+                      {personalLabels[column]}
+                    </option>
+                  ))}
+                </select>
+              </label>
+              <label>
+                Category
+                <select
+                  value={category}
+                  onChange={(event) =>
+                    setCategory(event.target.value as PersonalTicketCategory)
+                  }
+                >
+                  <option value="work">Work</option>
+                  <option value="personal">Personal</option>
+                </select>
+              </label>
+            </div>
+            {error && (
+              <p className="form-error" role="alert">
+                <CircleAlert size={15} />
+                {error}
+              </p>
+            )}
+          </div>
+          <footer className="drawer-footer personal-ticket-footer">
+            {ticket ? (
+              <button
+                type="button"
+                className="text-danger-button"
+                onClick={() => void cancelTicket()}
+                disabled={saving}
+              >
+                Cancel ticket
+              </button>
+            ) : (
+              <span />
+            )}
+            <div className="dialog-actions">
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={onClose}
+                disabled={saving}
+              >
+                Close
+              </button>
+              <button
+                type="submit"
+                className="primary-button"
+                disabled={saving || !title.trim()}
+              >
+                {saving && <LoaderCircle className="spin" size={15} />}
+                {ticket ? 'Save changes' : 'Create ticket'}
+              </button>
+            </div>
+          </footer>
+        </form>
+      </aside>
+    </>
+  );
+}
+
+function PersonalTicketIcon({ ticket }: { ticket: PersonalTicket }) {
+  return (
+    <span className="personal-ticket-icon" aria-hidden="true">
+      {personalTicketGlyph(personalTicketIconIndex(ticket.id))}
+    </span>
+  );
+}
+
+function PersonalTicketCard({
+  ticket,
+  busy,
+  onOpen,
+  onComplete,
+  onDragStart,
+  onDragEnd,
+}: {
+  ticket: PersonalTicket;
+  busy: boolean;
+  onOpen: () => void;
+  onComplete: () => void;
+  onDragStart: () => void;
+  onDragEnd: () => void;
+}) {
+  return (
+    <article
+      className={`personal-ticket-card horizon-${ticket.horizon} category-${ticket.category}`}
+      draggable={!busy}
+      onDragStart={(event) => {
+        event.dataTransfer.effectAllowed = 'move';
+        event.dataTransfer.setData('text/plain', ticket.id);
+        onDragStart();
+      }}
+      onDragEnd={onDragEnd}
+    >
+      <PersonalTicketIcon ticket={ticket} />
+      <button type="button" className="personal-ticket-open" onClick={onOpen}>
+        <h3>{ticket.title}</h3>
+        <span className={`personal-category category-${ticket.category}`}>
+          {ticket.category}
+        </span>
+      </button>
+      <label className="personal-complete-control">
+        <input
+          type="checkbox"
+          checked={false}
+          disabled={busy}
+          onChange={onComplete}
+          aria-label={`Complete ${ticket.title}`}
+        />
+        <span>{busy ? 'Saving…' : 'Complete'}</span>
+      </label>
+    </article>
+  );
+}
+
+function PersonalHistory({
+  title,
+  tickets,
+  expanded,
+  onToggle,
+  onRestore,
+  busyId,
+}: {
+  title: string;
+  tickets: PersonalTicket[];
+  expanded: boolean;
+  onToggle: () => void;
+  onRestore: (ticket: PersonalTicket) => void;
+  busyId: string | null;
+}) {
+  return (
+    <section className="personal-history">
+      <button
+        type="button"
+        className="personal-history-toggle"
+        onClick={onToggle}
+        aria-expanded={expanded}
+      >
+        <ChevronDown size={15} className={expanded ? 'is-open' : ''} />
+        <span>{title}</span>
+        <small>{tickets.length}</small>
+      </button>
+      {expanded && (
+        <div className="personal-history-list">
+          {tickets.length ? (
+            tickets.map((ticket) => (
+              <article
+                key={ticket.id}
+                className={`personal-history-ticket horizon-${ticket.horizon} category-${ticket.category}`}
+              >
+                <PersonalTicketIcon ticket={ticket} />
+                <div>
+                  <strong>{ticket.title}</strong>
+                  <span>
+                    {ticket.category} · {personalLabels[ticket.horizon]}
+                  </span>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => onRestore(ticket)}
+                  disabled={busyId === ticket.id}
+                >
+                  {busyId === ticket.id ? (
+                    <LoaderCircle className="spin" size={14} />
+                  ) : (
+                    <RotateCcw size={14} />
+                  )}
+                  Restore
+                </button>
+              </article>
+            ))
+          ) : (
+            <p className="personal-history-empty">Nothing here yet.</p>
+          )}
+        </div>
+      )}
+    </section>
+  );
+}
+
+function PersonalWorkspace({
+  tickets,
+  loading,
+  onTickets,
+}: {
+  tickets: PersonalTicket[];
+  loading: boolean;
+  onTickets: (tickets: PersonalTicket[]) => void;
+}) {
+  const [editing, setEditing] = useState<PersonalTicket | null | 'new'>(null);
+  const [draggingId, setDraggingId] = useState<string | null>(null);
+  const [dragOver, setDragOver] = useState<PersonalColumn | null>(null);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  const [actionError, setActionError] = useState('');
+  const [completedExpanded, setCompletedExpanded] = useState(false);
+  const [canceledExpanded, setCanceledExpanded] = useState(false);
+  const activeByColumn = useMemo(
+    () =>
+      Object.fromEntries(
+        personalColumns.map((column) => [
+          column,
+          tickets.filter(
+            (ticket) => ticket.status === 'active' && ticket.horizon === column,
+          ),
+        ]),
+      ) as Record<PersonalColumn, PersonalTicket[]>,
+    [tickets],
+  );
+  const completed = tickets.filter((ticket) => ticket.status === 'completed');
+  const canceled = tickets.filter((ticket) => ticket.status === 'canceled');
+
+  function replaceTicket(ticket: PersonalTicket) {
+    onTickets(
+      tickets.some((item) => item.id === ticket.id)
+        ? tickets.map((item) => (item.id === ticket.id ? ticket : item))
+        : [ticket, ...tickets],
+    );
+  }
+  async function transition(
+    ticket: PersonalTicket,
+    action: 'complete' | 'restore' | 'move',
+    horizon?: PersonalTicketHorizon,
+  ) {
+    setBusyId(ticket.id);
+    setActionError('');
+    try {
+      const { ticket: updated } = await api<{ ticket: PersonalTicket }>(
+        `/api/personal-tickets/${ticket.id}/${action}`,
+        action === 'move'
+          ? { method: 'POST', body: JSON.stringify({ horizon }) }
+          : { method: 'POST' },
+      );
+      replaceTicket(updated);
+    } catch (caught) {
+      setActionError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not update this ticket. Try again.',
+      );
+    } finally {
+      setBusyId(null);
+    }
+  }
+  function dropTicket(column: PersonalColumn) {
+    const ticket = tickets.find((item) => item.id === draggingId);
+    setDragOver(null);
+    setDraggingId(null);
+    if (!ticket || ticket.horizon === column || ticket.status !== 'active') return;
+    void transition(ticket, 'move', column);
+  }
+  function endDrag() {
+    setDraggingId(null);
+    setDragOver(null);
+  }
+
+  return (
+    <div className="personal-workspace">
+      <header className="personal-header">
+        <div>
+          <h1>Personal</h1>
+          <p>Keep today’s commitments in one quiet place.</p>
+        </div>
+        <button
+          type="button"
+          className="primary-button"
+          onClick={() => setEditing('new')}
+        >
+          <Plus size={16} />
+          New ticket
+        </button>
+      </header>
+      {actionError && (
+        <p className="personal-action-error form-error" role="alert">
+          <CircleAlert size={15} />
+          {actionError}
+        </p>
+      )}
+      {loading ? (
+        <div className="personal-loading" aria-live="polite">
+          <LoaderCircle className="spin" />
+          <p>Loading personal tickets…</p>
+        </div>
+      ) : (
+        <>
+          <div className="personal-board">
+            {personalColumns.map((column) => (
+              <section
+                key={column}
+                className={`personal-column${dragOver === column ? ' is-drag-over' : ''}`}
+                aria-labelledby={`personal-heading-${column}`}
+                onDragOver={(event) => {
+                  event.preventDefault();
+                  setDragOver(column);
+                }}
+                onDragLeave={() => setDragOver((current) => (current === column ? null : current))}
+                onDrop={(event) => {
+                  event.preventDefault();
+                  dropTicket(column);
+                }}
+              >
+                <header className="column-header">
+                  <div className="column-title">
+                    <span className="route-node" />
+                    <h2 id={`personal-heading-${column}`}>
+                      {personalLabels[column]}
+                    </h2>
+                  </div>
+                  <span className="column-count">{activeByColumn[column].length}</span>
+                </header>
+                <div className="personal-ticket-stack">
+                  {activeByColumn[column].map((ticket) => (
+                    <PersonalTicketCard
+                      key={ticket.id}
+                      ticket={ticket}
+                      busy={busyId === ticket.id}
+                      onOpen={() => setEditing(ticket)}
+                      onComplete={() => void transition(ticket, 'complete')}
+                      onDragStart={() => setDraggingId(ticket.id)}
+                      onDragEnd={endDrag}
+                    />
+                  ))}
+                  {!activeByColumn[column].length && (
+                    <p className="column-empty">Drop a ticket here</p>
+                  )}
+                </div>
+              </section>
+            ))}
+          </div>
+          <div className="personal-history-listing">
+            <PersonalHistory
+              title="Completed"
+              tickets={completed}
+              expanded={completedExpanded}
+              onToggle={() => setCompletedExpanded((current) => !current)}
+              onRestore={(ticket) => void transition(ticket, 'restore')}
+              busyId={busyId}
+            />
+            <PersonalHistory
+              title="Cancelled"
+              tickets={canceled}
+              expanded={canceledExpanded}
+              onToggle={() => setCanceledExpanded((current) => !current)}
+              onRestore={(ticket) => void transition(ticket, 'restore')}
+              busyId={busyId}
+            />
+          </div>
+        </>
+      )}
+      {editing !== null && (
+        <PersonalTicketForm
+          key={editing === 'new' ? 'new' : editing.id}
+          ticket={editing === 'new' ? null : editing}
+          onClose={() => setEditing(null)}
+          onSaved={replaceTicket}
+        />
+      )}
+    </div>
+  );
+}
+
 export default function Home() {
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedId, setSelectedId] = useState('');
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [personalTickets, setPersonalTickets] = useState<PersonalTicket[]>([]);
   const [document, setDocument] = useState<FeaturesDocument | null>(null);
   const [workspace, setWorkspace] = useState<Workspace>('board');
   const [loading, setLoading] = useState(true);
   const [featuresLoading, setFeaturesLoading] = useState(false);
+  const [personalLoading, setPersonalLoading] = useState(true);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [drawerId, setDrawerId] = useState<string | null>(null);
@@ -1495,6 +2043,24 @@ export default function Home() {
       ),
     [],
   );
+  const loadPersonalTickets = useCallback(async () => {
+    setPersonalLoading(true);
+    try {
+      const { tickets } = await api<{ tickets: PersonalTicket[] }>(
+        '/api/personal-tickets',
+      );
+      setPersonalTickets(tickets);
+      setError('');
+    } catch (caught) {
+      setError(
+        caught instanceof Error
+          ? caught.message
+          : 'Could not load personal tickets.',
+      );
+    } finally {
+      setPersonalLoading(false);
+    }
+  }, []);
   const loadFeatures = useCallback(async (id: string) => {
     setFeaturesLoading(true);
     setDocument(null);
@@ -1525,7 +2091,10 @@ export default function Home() {
           ) ?? listed[0];
         if (first) {
           setSelectedId(first.id);
-          if (first.featuresConfirmedAt === null) setWorkspace('features');
+          if (first.featuresConfirmedAt === null)
+            setWorkspace((current) =>
+              current === 'personal' ? current : 'features',
+            );
           await Promise.all([loadTasks(first.id), loadFeatures(first.id)]);
         }
       })
@@ -1535,7 +2104,17 @@ export default function Home() {
         ),
       )
       .finally(() => setLoading(false));
-  }, [loadFeatures, loadTasks]);
+    api<{ tickets: PersonalTicket[] }>('/api/personal-tickets')
+      .then(({ tickets }) => setPersonalTickets(tickets))
+      .catch((caught) =>
+        setError(
+          caught instanceof Error
+            ? caught.message
+            : 'Could not load personal tickets.',
+        ),
+      )
+      .finally(() => setPersonalLoading(false));
+  }, [loadFeatures, loadPersonalTickets, loadTasks]);
   useEffect(() => {
     if (!selectedId) return;
     let interval: number | undefined;
@@ -1572,7 +2151,10 @@ export default function Home() {
     setSelectedId(id);
     window.localStorage.setItem('agent-kanban-project', id);
     const nextProject = target ?? projects.find((item) => item.id === id);
-    if (nextProject?.featuresConfirmedAt === null) setWorkspace('features');
+    if (nextProject?.featuresConfirmedAt === null)
+      setWorkspace((current) =>
+        current === 'personal' ? current : 'features',
+      );
     setTasks([]);
     setDocument(null);
     setError('');
@@ -1647,80 +2229,112 @@ export default function Home() {
   const visibleColumns = showCanceled
     ? columns
     : columns.filter((column) => column !== 'canceled');
+  function switchBoard(mode: 'agent' | 'personal') {
+    if (mode === 'personal') {
+      setWorkspace('personal');
+      void loadPersonalTickets();
+      return;
+    }
+    setWorkspace(project?.featuresConfirmedAt === null ? 'features' : 'board');
+  }
   return (
     <main className="app-shell">
-      <section className="app-window" aria-label="Agent Kanban">
-        <header className="topbar">
-          <div className="brand">
-            <span className="brand-mark">
+      <section
+        className="app-window"
+        aria-label={workspace === 'personal' ? 'Personal Kanban' : 'Agent Kanban'}
+      >
+        <header className={`topbar${workspace === 'personal' ? ' is-personal' : ''}`}>
+          <label className="brand board-switcher">
+            <span className="brand-mark" aria-hidden="true">
               <span />
               <span />
               <span />
               <span />
             </span>
             <span className="brand-copy">
-              <strong>Agent Kanban</strong>
-              <span>Local handoff desk</span>
-            </span>
-          </div>
-          <button
-            className="secondary-button topbar-new-project"
-            type="button"
-            onClick={() => setProjectDialogOpen(true)}
-          >
-            <Plus size={16} />
-            New project
-          </button>
-          {project ? (
-            <label className="project-picker">
-              <FolderGit2 size={16} />
+              <strong>
+                {workspace === 'personal' ? 'Personal Kanban' : 'Agent Kanban'}
+              </strong>
               <span>
-                <strong>{project.name}</strong>
-                <small>{project.repoPath}</small>
+                {workspace === 'personal'
+                  ? 'Personal To-Do'
+                  : 'Local Agent Dev Board'}
               </span>
-              <select
-                value={selectedId}
-                onChange={(event) => chooseProject(event.target.value)}
-                aria-label="Switch project"
+            </span>
+            <select
+              value={workspace === 'personal' ? 'personal' : 'agent'}
+              onChange={(event) =>
+                switchBoard(event.target.value as 'agent' | 'personal')
+              }
+              aria-label="Switch Kanban board"
+            >
+              <option value="agent">Agent Kanban</option>
+              <option value="personal">Personal Kanban</option>
+            </select>
+            <ChevronDown className="board-switcher-chevron" size={14} />
+          </label>
+          {workspace !== 'personal' && (
+            <>
+              <button
+                className="secondary-button topbar-new-project"
+                type="button"
+                onClick={() => setProjectDialogOpen(true)}
               >
-                {projects.map((item) => (
-                  <option key={item.id} value={item.id}>
-                    {item.name}
-                  </option>
-                ))}
-              </select>
-              <ChevronDown size={14} />
-            </label>
-          ) : (
-            <div className="project-picker-placeholder" />
-          )}
-          <div className="topbar-actions">
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => setMigrationDialogOpen(true)}
-            >
-              <Upload size={15} />
-              Import
-            </button>
-            <button
-              type="button"
-              className="secondary-button"
-              onClick={() => void exportProject()}
-              disabled={!project || exporting}
-            >
-              {exporting ? (
-                <LoaderCircle className="spin" size={15} />
+                <Plus size={16} />
+                New project
+              </button>
+              {project ? (
+                <label className="project-picker">
+                  <FolderGit2 size={16} />
+                  <span>
+                    <strong>{project.name}</strong>
+                    <small>{project.repoPath}</small>
+                  </span>
+                  <select
+                    value={selectedId}
+                    onChange={(event) => chooseProject(event.target.value)}
+                    aria-label="Switch project"
+                  >
+                    {projects.map((item) => (
+                      <option key={item.id} value={item.id}>
+                        {item.name}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown size={14} />
+                </label>
               ) : (
-                <Download size={15} />
+                <div className="project-picker-placeholder" />
               )}
-              Export
-            </button>
-          </div>
+              <div className="topbar-actions">
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => setMigrationDialogOpen(true)}
+                >
+                  <Upload size={15} />
+                  Import
+                </button>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => void exportProject()}
+                  disabled={!project || exporting}
+                >
+                  {exporting ? (
+                    <LoaderCircle className="spin" size={15} />
+                  ) : (
+                    <Download size={15} />
+                  )}
+                  Export
+                </button>
+              </div>
+            </>
+          )}
         </header>
-        {project && (
-          <>
-            <div className="context-rail">
+        {workspace !== 'personal' && (
+          <div className="context-rail">
+            {project ? (
               <div className="repo-state">
                 <GitBranch size={14} />
                 <strong>
@@ -1736,28 +2350,33 @@ export default function Home() {
                   </span>
                 )}
               </div>
-              <nav className="workspace-switch" aria-label="Project workspace">
-                <button
-                  type="button"
-                  className={workspace === 'board' ? 'is-active' : ''}
-                  onClick={() => setWorkspace('board')}
-                  disabled={requirementsPending}
-                  aria-describedby={
-                    requirementsPending
-                      ? 'requirements-confirmation-gate'
-                      : undefined
-                  }
-                >
-                  Board
-                </button>
-                <button
-                  type="button"
-                  className={workspace === 'features' ? 'is-active' : ''}
-                  onClick={() => setWorkspace('features')}
-                >
-                  Features
-                </button>
-              </nav>
+            ) : (
+              <span aria-hidden="true" />
+            )}
+            <nav className="workspace-switch" aria-label="Workspace">
+              <button
+                type="button"
+                className={workspace === 'board' ? 'is-active' : ''}
+                onClick={() => setWorkspace('board')}
+                disabled={Boolean(project && requirementsPending)}
+                aria-describedby={
+                  project && requirementsPending
+                    ? 'requirements-confirmation-gate'
+                    : undefined
+                }
+              >
+                Board
+              </button>
+              <button
+                type="button"
+                className={workspace === 'features' ? 'is-active' : ''}
+                onClick={() => setWorkspace('features')}
+                disabled={!project}
+              >
+                Features
+              </button>
+            </nav>
+            {project ? (
               <span>
                 {requirementsPending ? (
                   <span
@@ -1773,22 +2392,24 @@ export default function Home() {
                   'FEATURES.md is the requirements source of truth'
                 )}
               </span>
-            </div>
-            {workspace === 'board' && !requirementsPending && (
-              <div className="board-tools">
-                <button
-                  type="button"
-                  className="canceled-toggle"
-                  onClick={() => setShowCanceled((current) => !current)}
-                >
-                  {showCanceled ? <EyeOff size={14} /> : <Eye size={14} />}
-                  {showCanceled
-                    ? 'Hide canceled'
-                    : `Show canceled (${grouped.canceled.length})`}
-                </button>
-              </div>
+            ) : (
+              <span aria-hidden="true" />
             )}
-          </>
+          </div>
+        )}
+        {workspace === 'board' && project && !requirementsPending && (
+          <div className="board-tools">
+            <button
+              type="button"
+              className="canceled-toggle"
+              onClick={() => setShowCanceled((current) => !current)}
+            >
+              {showCanceled ? <EyeOff size={14} /> : <Eye size={14} />}
+              {showCanceled
+                ? 'Hide canceled'
+                : `Show canceled (${grouped.canceled.length})`}
+            </button>
+          </div>
         )}
         {error && (
           <div className="global-message error-message" role="alert">
@@ -1816,7 +2437,13 @@ export default function Home() {
             </button>
           </div>
         )}
-        {loading ? (
+        {workspace === 'personal' ? (
+          <PersonalWorkspace
+            tickets={personalTickets}
+            loading={personalLoading}
+            onTickets={setPersonalTickets}
+          />
+        ) : loading ? (
           <div className="loading-state">
             <LoaderCircle className="spin" />
             <p>Loading local workspace…</p>

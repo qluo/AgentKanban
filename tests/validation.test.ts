@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import type { Task } from '@/src/lib/types';
 import {
   ValidationError,
+  validateCreatePersonalTicketInput,
   validateCreateTaskInput,
   validateProjectInput,
+  validateUpdatePersonalTicketInput,
   validateUpdateTaskInput,
   validateTransition,
 } from '@/src/lib/validation';
@@ -165,5 +167,50 @@ describe('task validation', () => {
         'done',
       ),
     ).not.toThrow();
+  });
+});
+
+describe('personal ticket validation', () => {
+  it('defaults a personal ticket to Today and Work while normalizing notes', () => {
+    expect(
+      validateCreatePersonalTicketInput({
+        title: '  Book dentist  ',
+        notes: '  Call after lunch.  ',
+      }),
+    ).toEqual({
+      title: 'Book dentist',
+      notes: 'Call after lunch.',
+      horizon: 'today',
+      category: 'work',
+    });
+  });
+
+  it('requires a title and validates every selectable field', () => {
+    expect(() => validateCreatePersonalTicketInput({ notes: 'No title' })).toThrow(
+      'title is required',
+    );
+    expect(() =>
+      validateCreatePersonalTicketInput({
+        title: 'Bad values',
+        horizon: 'tomorrow',
+        category: 'household',
+      }),
+    ).toThrow(ValidationError);
+    expect(() => validateUpdatePersonalTicketInput({})).toThrow(
+      'At least one editable field',
+    );
+    expect(
+      validateUpdatePersonalTicketInput({
+        title: '  Edited  ',
+        notes: null,
+        horizon: 'this_month',
+        category: 'personal',
+      }),
+    ).toEqual({
+      title: 'Edited',
+      notes: '',
+      horizon: 'this_month',
+      category: 'personal',
+    });
   });
 });

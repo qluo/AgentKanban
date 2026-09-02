@@ -1,10 +1,16 @@
 import {
+  PERSONAL_TICKET_CATEGORIES,
+  PERSONAL_TICKET_HORIZONS,
   TASK_COLUMNS,
   VERIFICATION_STATUSES,
+  type CreatePersonalTicketInput,
   type CreateProjectInput,
   type CreateTaskInput,
+  type PersonalTicketCategory,
+  type PersonalTicketHorizon,
   type Task,
   type TaskColumn,
+  type UpdatePersonalTicketInput,
   type UpdateTaskInput,
   type VerificationStatus,
 } from './types';
@@ -73,6 +79,59 @@ export function validateProjectInput(input: unknown): CreateProjectInput {
   const repoPath = requiredText(value.repoPath, 'repoPath', issues);
   if (Object.keys(issues).length > 0) throw new ValidationError(issues);
   return { name, repoPath };
+}
+
+export function validateCreatePersonalTicketInput(
+  input: unknown,
+): CreatePersonalTicketInput {
+  const value = (input ?? {}) as Record<string, unknown>;
+  const issues: Record<string, string> = {};
+  const title = requiredText(value.title, 'title', issues);
+  const notes = humanOptionalText(value.notes, 'notes', issues);
+  const horizon = (value.horizon ?? 'today') as PersonalTicketHorizon;
+  const category = (value.category ?? 'work') as PersonalTicketCategory;
+
+  if (!PERSONAL_TICKET_HORIZONS.includes(horizon)) {
+    issues.horizon = 'Horizon is invalid.';
+  }
+  if (!PERSONAL_TICKET_CATEGORIES.includes(category)) {
+    issues.category = 'Category is invalid.';
+  }
+  if (Object.keys(issues).length > 0) throw new ValidationError(issues);
+  return { title, notes, horizon, category };
+}
+
+export function validateUpdatePersonalTicketInput(
+  input: unknown,
+): UpdatePersonalTicketInput {
+  const value = (input ?? {}) as Record<string, unknown>;
+  const result: UpdatePersonalTicketInput = {};
+  const issues: Record<string, string> = {};
+
+  if ('title' in value) result.title = requiredText(value.title, 'title', issues);
+  if ('notes' in value) result.notes = humanOptionalText(value.notes, 'notes', issues);
+  if ('horizon' in value) {
+    const horizon = value.horizon as PersonalTicketHorizon;
+    if (!PERSONAL_TICKET_HORIZONS.includes(horizon)) {
+      issues.horizon = 'Horizon is invalid.';
+    } else {
+      result.horizon = horizon;
+    }
+  }
+  if ('category' in value) {
+    const category = value.category as PersonalTicketCategory;
+    if (!PERSONAL_TICKET_CATEGORIES.includes(category)) {
+      issues.category = 'Category is invalid.';
+    } else {
+      result.category = category;
+    }
+  }
+
+  if (Object.keys(result).length === 0 && Object.keys(issues).length === 0) {
+    issues.ticket = 'At least one editable field is required.';
+  }
+  if (Object.keys(issues).length > 0) throw new ValidationError(issues);
+  return result;
 }
 
 export function validateCreateTaskInput(input: unknown): CreateTaskInput {

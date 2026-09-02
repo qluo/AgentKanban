@@ -10,14 +10,22 @@ import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDatabase } from '@/src/lib/db';
 import {
+  cancelPersonalTicket,
+  completePersonalTicket,
   confirmProjectFeatures,
+  createPersonalTicket,
   createProject,
   createTask,
   completeTask,
+  getPersonalTicket,
+  listPersonalTickets,
   listProjects,
   listTasks,
+  movePersonalTicket,
+  restorePersonalTicket,
   moveTask,
   setTaskCheckpoint,
+  updatePersonalTicket,
   updateTask,
 } from '@/src/lib/repository';
 
@@ -36,6 +44,84 @@ afterEach(() => {
 });
 
 describe('repository', () => {
+  it('keeps personal tickets independent and persists their lifecycle', () => {
+    const root = temporaryRoot();
+    const dbPath = path.join(root, 'kanban.sqlite');
+    const first = createDatabase(dbPath);
+    const workTicket = createPersonalTicket(first, { title: 'Default ticket' });
+    const personalTicket = createPersonalTicket(first, {
+      title: 'Plan trip',
+      notes: 'Book the train.',
+      horizon: 'this_week',
+      category: 'personal',
+    });
+
+    expect(workTicket).toMatchObject({
+      horizon: 'today',
+      category: 'work',
+      status: 'active',
+      notes: '',
+      completedAt: null,
+      canceledAt: null,
+    });
+    expect(
+      updatePersonalTicket(first, personalTicket.id, {
+        title: 'Plan autumn trip',
+        notes: 'Book the sleeper train.',
+        category: 'work',
+      }),
+    ).toMatchObject({
+      title: 'Plan autumn trip',
+      notes: 'Book the sleeper train.',
+      horizon: 'this_week',
+      category: 'work',
+    });
+    expect(movePersonalTicket(first, personalTicket.id, 'this_month').horizon).toBe(
+      'this_month',
+    );
+    expect(completePersonalTicket(first, personalTicket.id)).toMatchObject({
+      status: 'completed',
+      horizon: 'this_month',
+      completedAt: expect.any(String),
+      canceledAt: null,
+    });
+    expect(() => movePersonalTicket(first, personalTicket.id, 'today')).toThrow(
+      'Only active tickets',
+    );
+    expect(() =>
+      updatePersonalTicket(first, personalTicket.id, { title: 'Move me back' }),
+    ).toThrow('Only active tickets');
+    expect(restorePersonalTicket(first, personalTicket.id)).toMatchObject({
+      status: 'active',
+      horizon: 'this_month',
+      completedAt: null,
+      canceledAt: null,
+    });
+    expect(cancelPersonalTicket(first, personalTicket.id)).toMatchObject({
+      status: 'canceled',
+      horizon: 'this_month',
+      completedAt: null,
+      canceledAt: expect.any(String),
+    });
+    first.close();
+
+    const second = createDatabase(dbPath);
+    expect(listPersonalTickets(second)).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ id: workTicket.id, status: 'active' }),
+        expect.objectContaining({
+          id: personalTicket.id,
+          status: 'canceled',
+          horizon: 'this_month',
+        }),
+      ]),
+    );
+    expect(getPersonalTicket(second, personalTicket.id).canceledAt).toEqual(
+      expect.any(String),
+    );
+    second.close();
+  });
+
   it('imports local directories, creating a missing directory with unconfirmed requirements', () => {
     const root = temporaryRoot();
     const repoPath = path.join(root, 'new-project');

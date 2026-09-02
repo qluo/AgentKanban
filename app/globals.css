@@ -1,6 +1,7 @@
 :root {
   color-scheme: light dark;
   --ground: light-dark(#e9edf2, #0e1217);
+  --personal-ground: light-dark(#e4eee8, #0f1713);
   --shell: light-dark(#f7f9fb, #171c23);
   --toolbar: light-dark(#fff, #1d232c);
   --panel: light-dark(#eef2f6, #12171d);
@@ -160,6 +161,9 @@ select:focus {
   border-bottom: 1px solid var(--line);
   background: var(--toolbar);
 }
+.topbar.is-personal {
+  grid-template-columns: 1fr;
+}
 .brand,
 .topbar-actions,
 .repo-state,
@@ -188,6 +192,35 @@ select:focus {
 .brand {
   gap: 10px;
   white-space: nowrap;
+}
+.board-switcher {
+  position: relative;
+  width: fit-content;
+  padding: 6px 8px;
+  border: 1px solid transparent;
+  border-radius: 9px;
+  transition: border-color 160ms ease, background-color 160ms ease;
+}
+.board-switcher:hover,
+.board-switcher:focus-within {
+  border-color: var(--line);
+  background: var(--panel);
+}
+.board-switcher:focus-within {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+}
+.board-switcher select {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  min-height: 100%;
+  opacity: 0;
+  cursor: pointer;
+}
+.board-switcher-chevron {
+  margin-left: 2px;
+  color: var(--faint);
 }
 .brand-mark {
   display: grid;
@@ -1291,6 +1324,257 @@ select:focus {
   font-size: 12px;
   line-height: 1.4;
 }
+
+.personal-workspace {
+  min-height: calc(100vh - 114px);
+  padding: 20px;
+  background: var(--personal-ground);
+}
+.personal-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 18px;
+  max-width: 1200px;
+  margin: 0 auto 18px;
+}
+.personal-header h1 {
+  font-size: 20px;
+  letter-spacing: -0.02em;
+}
+.personal-header p {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.personal-action-error {
+  max-width: 1200px;
+  margin: 0 auto 14px;
+}
+.personal-loading {
+  display: grid;
+  place-items: center;
+  align-content: center;
+  min-height: 420px;
+  gap: 10px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.personal-board {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(220px, 1fr));
+  gap: 12px;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+.personal-column {
+  min-height: 360px;
+  padding: 11px 9px 12px;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: var(--panel);
+  transition: border-color 180ms ease, background-color 180ms ease;
+}
+.personal-column.is-drag-over {
+  border-color: var(--blue);
+  background: var(--blue-soft);
+}
+.personal-ticket-stack {
+  display: grid;
+  align-content: start;
+  gap: 8px;
+  min-height: 170px;
+}
+.personal-ticket-card {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 10px;
+  padding: 10px;
+  border: 1px solid color-mix(in srgb, var(--ticket-accent) 30%, var(--line));
+  border-radius: 12px;
+  background: var(--ticket-surface);
+  box-shadow: 0 2px 4px rgba(20, 29, 38, 0.06);
+  transition: transform 180ms ease, border-color 180ms ease, box-shadow 180ms ease;
+}
+.personal-ticket-card.horizon-today.category-work,
+.personal-history-ticket.horizon-today.category-work {
+  --ticket-surface: light-dark(#e5efff, #18263a);
+  --ticket-accent: light-dark(#2463b6, #7eb1ff);
+}
+.personal-ticket-card.horizon-this_week.category-work,
+.personal-history-ticket.horizon-this_week.category-work {
+  --ticket-surface: light-dark(#e9ecfb, #24253c);
+  --ticket-accent: light-dark(#5557aa, #a9aaff);
+}
+.personal-ticket-card.horizon-this_month.category-work,
+.personal-history-ticket.horizon-this_month.category-work {
+  --ticket-surface: light-dark(#e3eef1, #192b30);
+  --ticket-accent: light-dark(#24717b, #75cbd3);
+}
+.personal-ticket-card.horizon-today.category-personal,
+.personal-history-ticket.horizon-today.category-personal {
+  --ticket-surface: light-dark(#fff0df, #38251a);
+  --ticket-accent: light-dark(#a65316, #ff9b55);
+}
+.personal-ticket-card.horizon-this_week.category-personal,
+.personal-history-ticket.horizon-this_week.category-personal {
+  --ticket-surface: light-dark(#f2e8ff, #30223d);
+  --ticket-accent: light-dark(#7445ad, #c495ff);
+}
+.personal-ticket-card.horizon-this_month.category-personal,
+.personal-history-ticket.horizon-this_month.category-personal {
+  --ticket-surface: light-dark(#f9e7ed, #39222c);
+  --ticket-accent: light-dark(#a54165, #f08aaf);
+}
+.personal-ticket-icon {
+  display: grid;
+  width: 30px;
+  height: 30px;
+  place-items: center;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--ticket-accent) 12%, transparent);
+  color: var(--ticket-accent);
+}
+.personal-ticket-card:hover {
+  transform: translateY(-1px);
+  border-color: var(--strong-line);
+  box-shadow: 0 8px 20px rgba(20, 29, 38, 0.11);
+}
+.personal-ticket-open {
+  display: grid;
+  justify-items: start;
+  gap: 7px;
+  min-width: 0;
+  border: 0;
+  background: transparent;
+  color: inherit;
+  text-align: left;
+}
+.personal-ticket-open h3 {
+  overflow: hidden;
+  font-size: 13px;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.personal-category {
+  padding: 2px 5px;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  color: var(--muted);
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+.personal-ticket-card .personal-category {
+  border-color: color-mix(in srgb, var(--ticket-accent) 32%, transparent);
+  color: var(--ticket-accent);
+}
+.personal-complete-control {
+  display: grid;
+  justify-items: center;
+  gap: 3px;
+  color: var(--faint);
+  font-size: 9px;
+  font-weight: 700;
+}
+.personal-complete-control input {
+  width: 18px;
+  min-height: 18px;
+  accent-color: var(--green);
+}
+.personal-history-listing {
+  display: grid;
+  gap: 8px;
+  max-width: 1200px;
+  margin: 18px auto 0;
+}
+.personal-history {
+  border-top: 1px solid var(--line);
+}
+.personal-history-toggle {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 12px 4px;
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 750;
+  text-align: left;
+}
+.personal-history-toggle svg {
+  transition: transform 180ms ease;
+}
+.personal-history-toggle svg.is-open {
+  transform: rotate(180deg);
+}
+.personal-history-toggle small {
+  margin-left: auto;
+  color: var(--faint);
+  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+.personal-history-list {
+  display: grid;
+  gap: 7px;
+  padding: 0 0 12px;
+}
+.personal-history-ticket {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 9px 10px;
+  border: 1px solid color-mix(in srgb, var(--ticket-accent) 30%, var(--line));
+  border-radius: 8px;
+  background: var(--ticket-surface);
+}
+.personal-history-ticket div {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+.personal-history-ticket strong {
+  overflow: hidden;
+  font-size: 12px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.personal-history-ticket div > span,
+.personal-history-empty {
+  color: var(--muted);
+  font-size: 10px;
+}
+.personal-history-empty {
+  margin: 0;
+  padding: 3px 4px 12px;
+}
+.personal-ticket-drawer .drawer-body {
+  gap: 15px;
+}
+.personal-ticket-form label {
+  display: grid;
+  gap: 7px;
+  color: var(--muted);
+  font-size: 11px;
+  font-weight: 700;
+}
+.personal-ticket-form textarea {
+  min-height: 120px;
+}
+.personal-ticket-options {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.personal-ticket-footer {
+  align-items: center;
+}
 .spin {
   animation: spin 800ms linear infinite;
 }
@@ -1417,6 +1701,23 @@ select:focus {
   .onboarding-actions .primary-button,
   .onboarding-actions .secondary-button {
     flex: 1;
+  }
+  .personal-workspace {
+    min-height: calc(100vh - 67px);
+    padding: 16px;
+  }
+  .personal-board {
+    grid-template-columns: 1fr;
+  }
+  .personal-column {
+    min-height: 150px;
+  }
+  .personal-header {
+    align-items: stretch;
+    flex-direction: column;
+  }
+  .personal-header .primary-button {
+    align-self: flex-start;
   }
 }
 @media (prefers-reduced-motion: reduce) {

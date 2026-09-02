@@ -20,6 +20,47 @@ afterEach(() => {
 });
 
 describe('task schema migration', () => {
+  it('adds a separate personal-ticket table without changing a legacy project database', () => {
+    const databasePath = path.join(temporaryRoot(), 'legacy-personal.sqlite');
+    const legacy = new Database(databasePath);
+    legacy.exec(`
+      CREATE TABLE projects (
+        id TEXT PRIMARY KEY, name TEXT NOT NULL, repo_path TEXT NOT NULL UNIQUE,
+        created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
+      CREATE TABLE tasks (
+        number INTEGER PRIMARY KEY AUTOINCREMENT, id TEXT NOT NULL UNIQUE,
+        project_id TEXT NOT NULL REFERENCES projects(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        column_id TEXT NOT NULL CHECK (column_id IN ('backlog', 'ready', 'in-progress', 'verification', 'done')),
+        position INTEGER NOT NULL DEFAULT 0, task TEXT NOT NULL, progress TEXT NOT NULL,
+        decisions TEXT NOT NULL,
+        verification_status TEXT NOT NULL CHECK (verification_status IN ('not_run', 'passed', 'failed', 'partial')),
+        verification_notes TEXT NOT NULL, checkpoint_state TEXT NOT NULL DEFAULT 'not_captured',
+        git_branch TEXT, git_sha TEXT, git_dirty INTEGER, checkpoint_error TEXT,
+        checkpoint_captured_at TEXT, created_at TEXT NOT NULL, updated_at TEXT NOT NULL
+      );
+    `);
+    legacy.close();
+
+    const migrated = createDatabase(databasePath);
+    const personalSchema = (
+      migrated
+        .prepare("SELECT sql FROM sqlite_master WHERE type = 'table' AND name = 'personal_tickets'")
+        .get() as { sql: string }
+    ).sql;
+    expect(personalSchema).toContain("DEFAULT 'today'");
+    expect(personalSchema).toContain("DEFAULT 'work'");
+    expect(personalSchema).toContain("'completed'");
+    expect(personalSchema).toContain("'canceled'");
+    expect(
+      migrated
+        .prepare("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'tasks'")
+        .get(),
+    ).toBeTruthy();
+    migrated.close();
+  });
+
   it('preserves existing projects and tasks while adding feature and cancellation fields', () => {
     const databasePath = path.join(temporaryRoot(), 'legacy.sqlite');
     const legacy = new Database(databasePath);

@@ -48,6 +48,22 @@ function initialize(db: Database.Database) {
     CREATE INDEX IF NOT EXISTS idx_tasks_project_column_position
     ON tasks(project_id, column_id, position);
 
+    CREATE TABLE IF NOT EXISTS personal_tickets (
+      id TEXT PRIMARY KEY,
+      title TEXT NOT NULL,
+      notes TEXT NOT NULL DEFAULT '',
+      horizon TEXT NOT NULL DEFAULT 'today' CHECK (horizon IN ('today', 'this_week', 'this_month')),
+      category TEXT NOT NULL DEFAULT 'work' CHECK (category IN ('work', 'personal')),
+      status TEXT NOT NULL DEFAULT 'active' CHECK (status IN ('active', 'completed', 'canceled')),
+      created_at TEXT NOT NULL,
+      updated_at TEXT NOT NULL,
+      completed_at TEXT,
+      canceled_at TEXT
+    );
+
+    CREATE INDEX IF NOT EXISTS idx_personal_tickets_status_horizon
+    ON personal_tickets(status, horizon);
+
   `);
 
   migrateProjects(db);
