@@ -2025,7 +2025,7 @@ export default function Home() {
   const [workspace, setWorkspace] = useState<Workspace>('board');
   const [loading, setLoading] = useState(true);
   const [featuresLoading, setFeaturesLoading] = useState(false);
-  const [personalLoading, setPersonalLoading] = useState(true);
+  const [personalLoading, setPersonalLoading] = useState(false);
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [drawerId, setDrawerId] = useState<string | null>(null);
@@ -2104,19 +2104,9 @@ export default function Home() {
         ),
       )
       .finally(() => setLoading(false));
-    api<{ tickets: PersonalTicket[] }>('/api/personal-tickets')
-      .then(({ tickets }) => setPersonalTickets(tickets))
-      .catch((caught) =>
-        setError(
-          caught instanceof Error
-            ? caught.message
-            : 'Could not load personal tickets.',
-        ),
-      )
-      .finally(() => setPersonalLoading(false));
-  }, [loadFeatures, loadPersonalTickets, loadTasks]);
+  }, [loadFeatures, loadTasks]);
   useEffect(() => {
-    if (!selectedId) return;
+    if (!selectedId || workspace === 'personal') return;
     let interval: number | undefined;
     const poll = () => {
       loadTasks(selectedId).catch(() => undefined);
@@ -2146,7 +2136,7 @@ export default function Home() {
       stopPolling();
       window.document.removeEventListener('visibilitychange', handleVisibility);
     };
-  }, [loadTasks, selectedId]);
+  }, [loadTasks, selectedId, workspace]);
   async function chooseProject(id: string, target?: Project) {
     setSelectedId(id);
     window.localStorage.setItem('agent-kanban-project', id);

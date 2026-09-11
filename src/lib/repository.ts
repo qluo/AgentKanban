@@ -180,8 +180,6 @@ export function movePersonalTicket(
   id: string,
   horizon: PersonalTicketHorizon,
 ) {
-  const ticket = getPersonalTicket(db, id);
-  requireActivePersonalTicket(ticket);
   return updatePersonalTicket(db, id, { horizon });
 }
 

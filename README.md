@@ -35,11 +35,13 @@ Start a new Codex turn after installation, then initialize Agent Kanban:
 $kanban-manager init
 ```
 
-The skill clones the app to `$HOME/Documents/AgentKanban` by default, verifies
-Node.js and npm, and installs the locked dependencies. Set `AGENT_KANBAN_DIR`
-before invoking the skill when you want a different installation directory.
+The skill first checks for a running Agent Kanban app and reuses it. If it is
+stopped, it asks for your local checkout location (unless already supplied)
+and searches for an existing checkout. Only if none can be found does it clone
+the app. It installs dependencies and builds when needed, then starts the
+production server. New projects share this installation.
 
-Launch the local web app:
+You can also launch or reconnect to the local web app with:
 
 ```text
 $kanban-manager start
@@ -140,10 +142,13 @@ The `kanban-manager` skill handles app installation and startup and teaches
 Codex how to groom features and keep task handoffs synchronized with the
 running app.
 
-- `$kanban-manager init` safely clones and installs the app. It never replaces,
-  resets, or pulls an existing checkout.
-- `$kanban-manager start` starts the loopback-only development server or reports
-  that it is already running.
+- `$kanban-manager init` and `$kanban-manager start` reuse a running app or
+  locate and start an existing checkout. Cloning is the last fallback. Neither
+  command replaces, resets, or pulls an existing checkout.
+- Ordinary startup uses the loopback-only production server; development mode
+  is available on explicit request.
+- After each ticket reaches Done and its commit/PR handoff is reported, agents
+  pause for human review. The next ticket starts only after you ask to continue.
 - For board work, invoke `$kanban-manager` so Codex reads the registered
   project's feature, task, and handoff state before acting.
 

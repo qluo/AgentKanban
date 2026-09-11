@@ -25,6 +25,10 @@ file, and asks the Tech Lead to begin.
 - After each card reaches Done, check in only that card's changes on a focused
   branch, create its pull request, link the PR to the card, and report it to the
   human. Never bundle unrelated cards into one PR.
+- Then pause for human review and end the session. Record that the ticket is
+  awaiting human review, including its review location or publishing blocker.
+  Do not start or delegate the next ticket until the human explicitly asks to
+  continue after this handoff; earlier blanket approval is not sufficient.
 
 **Implementor — senior engineer (for example, Terra-high/medium)**
 
@@ -45,6 +49,8 @@ file, and asks the Tech Lead to begin.
 ## Enforcement
 
 - Normal flow: `Backlog → Ready → In Progress → Validation → Done`.
+- Develop one ticket at a time across the team, including its independent
+  validation and human review pause. Do not pre-start the next ticket.
 - Every delegation specifies one card ID, role, and expected transition.
 - Never assign or accept multiple cards concurrently: an Implementor is busy
   until Validation handoff; a Validator is busy until its review ends.

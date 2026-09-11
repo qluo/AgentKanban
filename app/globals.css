@@ -1,4 +1,13 @@
 :root {
+  --font-9: 11.7px;
+  --font-10: 13px;
+  --font-11: 14.3px;
+  --font-12: 15.6px;
+  --font-13: 16.9px;
+  --font-14: 18.2px;
+  --font-18: 23.4px;
+  --font-19: 24.7px;
+  --font-20: 26px;
   color-scheme: light dark;
   --ground: light-dark(#e9edf2, #0e1217);
   --personal-ground: light-dark(#e4eee8, #0f1713);
@@ -119,7 +128,7 @@ select {
   border-radius: 8px;
   background: var(--shell);
   color: var(--ink);
-  font-size: 13px;
+  font-size: var(--font-13);
 }
 input,
 select {
@@ -245,12 +254,12 @@ select:focus {
   gap: 1px;
 }
 .brand-copy strong {
-  font-size: 14px;
+  font-size: var(--font-14);
   letter-spacing: -0.02em;
 }
 .brand-copy span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-10);
   letter-spacing: 0.08em;
   text-transform: uppercase;
 }
@@ -278,12 +287,12 @@ select:focus {
   white-space: nowrap;
 }
 .project-picker strong {
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .project-picker small {
   color: var(--muted);
   font:
-    10px ui-monospace,
+    var(--font-10) ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -311,7 +320,7 @@ select:focus {
   justify-content: center;
   gap: 7px;
   border-radius: 8px;
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .primary-button {
   min-height: 35px;
@@ -347,7 +356,7 @@ select:focus {
   padding: 9px 16px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .context-rail > span {
   justify-self: end;
@@ -363,14 +372,14 @@ select:focus {
 .repo-state strong {
   color: var(--ink);
   font:
-    650 11px ui-monospace,
+    650 var(--font-11) ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
 }
 .dirty-state,
 .clean-state {
-  font-size: 10px;
+  font-size: var(--font-10);
   font-weight: 750;
   letter-spacing: 0.06em;
   text-transform: uppercase;
@@ -395,7 +404,7 @@ select:focus {
   border-radius: 5px;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 700;
 }
 .workspace-switch .is-active {
@@ -417,7 +426,7 @@ select:focus {
   padding: 4px 0;
   border: 0;
   background: transparent;
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .canceled-toggle {
   color: var(--muted);
@@ -461,7 +470,7 @@ select:focus {
 }
 .column-title h2 {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--font-10);
   letter-spacing: 0.055em;
   text-transform: uppercase;
 }
@@ -470,7 +479,7 @@ select:focus {
 .feature-id {
   color: var(--muted);
   font:
-    10px ui-monospace,
+    var(--font-10) ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -505,7 +514,7 @@ select:focus {
 .column-empty {
   margin: 24px 4px;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--font-10);
   text-align: center;
 }
 .task-card {
@@ -542,7 +551,7 @@ select:focus {
 .task-reference,
 .feature-tag {
   font:
-    9px ui-monospace,
+    var(--font-9) ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -552,7 +561,7 @@ select:focus {
 }
 .task-card h3 {
   margin: 6px 0 7px;
-  font-size: 13px;
+  font-size: var(--font-13);
   line-height: 1.3;
   letter-spacing: -0.01em;
 }
@@ -570,12 +579,12 @@ select:focus {
   min-height: 39px;
   margin: 10px 0 11px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   line-height: 1.35;
 }
 .task-summary strong {
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--font-9);
   letter-spacing: 0.07em;
   text-transform: uppercase;
 }
@@ -587,7 +596,7 @@ select:focus {
 }
 .task-card-meta {
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--font-9);
 }
 .checkpoint-mini,
 .verification-mark {
@@ -624,7 +633,7 @@ select:focus {
 .features-onboarding h1 {
   max-width: 620px;
   margin: 0 0 10px;
-  font-size: clamp(28px, 5vw, 46px);
+  font-size: clamp(36.4px, 6.5vw, 59.8px);
   letter-spacing: -0.035em;
 }
 .first-run-state p,
@@ -645,7 +654,7 @@ select:focus {
   border-radius: 9px;
   transform: translateX(-50%);
   box-shadow: 0 8px 24px rgba(15, 22, 30, 0.16);
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .global-message button {
   margin-left: auto;
@@ -707,14 +716,14 @@ select:focus {
   margin: 0 0 5px;
   color: var(--blue);
   font:
-    700 10px ui-monospace,
+    700 var(--font-10) ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
 }
 .drawer-header h2 {
   margin: 0;
-  font-size: 19px;
+  font-size: var(--font-19);
 }
 .drawer-body {
   display: grid;
@@ -730,7 +739,7 @@ select:focus {
   border-radius: 8px;
   background: var(--panel);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   line-height: 1.5;
 }
 .drawer-body input[readonly],
@@ -748,12 +757,12 @@ select:focus {
   display: grid;
   gap: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 700;
 }
 .field-note {
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--font-10);
   font-weight: 500;
 }
 .read-only-field {
@@ -766,11 +775,11 @@ select:focus {
 }
 .read-only-field span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 700;
 }
 .read-only-field strong {
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .pull-request-field a {
   display: flex;
@@ -778,7 +787,7 @@ select:focus {
   gap: 7px;
   min-width: 0;
   color: var(--blue);
-  font-size: 12px;
+  font-size: var(--font-12);
   font-weight: 700;
 }
 .pull-request-field a span {
@@ -804,13 +813,13 @@ select:focus {
 }
 .checkpoint-panel h3 {
   margin: 0 0 5px;
-  font-size: 11px;
+  font-size: var(--font-11);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
 .checkpoint-panel p {
   margin: 0;
-  font-size: 11px;
+  font-size: var(--font-11);
   line-height: 1.45;
 }
 .drawer-footer {
@@ -821,7 +830,7 @@ select:focus {
 }
 .read-only-footer {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .inline-confirm {
   gap: 8px;
@@ -876,7 +885,7 @@ select:focus {
   min-width: 0;
   overflow: hidden;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -900,13 +909,13 @@ select:focus {
 }
 .migration-summary span {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-10);
   font-weight: 700;
   text-transform: uppercase;
 }
 .migration-summary strong {
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--font-13);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
@@ -915,7 +924,7 @@ select:focus {
   overflow-wrap: anywhere;
   color: var(--muted);
   font:
-    10px/1.5 ui-monospace,
+    var(--font-10)/1.5 ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -931,14 +940,14 @@ select:focus {
 .features-conflict legend {
   padding: 0 5px;
   color: var(--amber);
-  font-size: 12px;
+  font-size: var(--font-12);
   font-weight: 750;
 }
 .features-conflict p,
 .features-conflict small {
   margin: 0;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   line-height: 1.45;
 }
 .project-dialog .features-conflict label {
@@ -950,7 +959,7 @@ select:focus {
   border: 1px solid var(--line);
   border-radius: 8px;
   color: var(--ink);
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .project-dialog .features-conflict label:has(input:checked) {
   border-color: var(--blue);
@@ -983,7 +992,7 @@ select:focus {
   display: block;
   padding: 8px 10px;
   border-bottom: 1px solid var(--line);
-  font-size: 10px;
+  font-size: var(--font-10);
 }
 .features-comparison pre {
   max-height: 190px;
@@ -992,7 +1001,7 @@ select:focus {
   overflow: auto;
   color: var(--muted);
   font:
-    10px/1.5 ui-monospace,
+    var(--font-10)/1.5 ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -1005,7 +1014,7 @@ select:focus {
   gap: 7px;
   margin: 0;
   color: var(--green);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 700;
 }
 .dialog-heading {
@@ -1015,13 +1024,13 @@ select:focus {
 }
 .dialog-heading h2 {
   margin: 0 0 6px;
-  font-size: 20px;
+  font-size: var(--font-20);
 }
 .dialog-heading p {
   max-width: 50ch;
   margin: 0;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-12);
   line-height: 1.45;
 }
 
@@ -1045,7 +1054,7 @@ select:focus {
   background: var(--panel);
 }
 .file-path strong {
-  font-size: 11px;
+  font-size: var(--font-11);
   letter-spacing: 0.05em;
   text-transform: uppercase;
 }
@@ -1078,11 +1087,11 @@ select:focus {
   padding: 10px 13px;
   border-bottom: 1px solid var(--line);
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .feature-file-preview > div strong {
   color: var(--ink);
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .feature-file-preview pre {
   max-height: min(44vh, 440px);
@@ -1091,7 +1100,7 @@ select:focus {
   overflow: auto;
   color: var(--ink);
   font:
-    12px/1.6 ui-monospace,
+    var(--font-12)/1.6 ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -1130,13 +1139,13 @@ select:focus {
 .feature-list-header h1,
 .inspector-header h1 {
   margin: 0;
-  font-size: 18px;
+  font-size: var(--font-18);
 }
 .feature-list-header p {
   margin: 5px 0 0;
   color: var(--muted);
   font:
-    10px ui-monospace,
+    var(--font-10) ui-monospace,
     SFMono-Regular,
     Menlo,
     monospace;
@@ -1169,13 +1178,13 @@ select:focus {
 }
 .feature-row strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--font-12);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .feature-status {
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--font-10);
   font-weight: 700;
   text-transform: capitalize;
 }
@@ -1199,7 +1208,7 @@ select:focus {
   gap: 8px;
   margin-top: 8px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .feature-content,
 .feature-editor,
@@ -1211,7 +1220,7 @@ select:focus {
 .feature-content pre {
   margin: 0;
   font:
-    13px/1.7 ui-sans-serif,
+    var(--font-13)/1.7 ui-sans-serif,
     sans-serif;
   white-space: pre-wrap;
 }
@@ -1233,7 +1242,7 @@ select:focus {
 }
 .linked-tasks h2 {
   margin: 0;
-  font-size: 12px;
+  font-size: var(--font-12);
   text-transform: uppercase;
 }
 .linked-tasks ul {
@@ -1267,16 +1276,16 @@ select:focus {
   min-width: 0;
 }
 .linked-task-button strong {
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .linked-task-button span {
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
 }
 .linked-task-button em {
   flex: 0 0 auto;
   color: var(--faint);
-  font-size: 10px;
+  font-size: var(--font-10);
   font-style: normal;
   text-transform: capitalize;
 }
@@ -1295,7 +1304,7 @@ select:focus {
   flex: 1 1 320px;
   gap: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 700;
 }
 .cancel-reason-field textarea {
@@ -1310,7 +1319,7 @@ select:focus {
 }
 .canceled-feature-note p {
   margin: 5px 0 0;
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .form-error {
   display: flex;
@@ -1321,7 +1330,7 @@ select:focus {
   border-radius: 8px;
   background: var(--red-soft);
   color: var(--red);
-  font-size: 12px;
+  font-size: var(--font-12);
   line-height: 1.4;
 }
 
@@ -1339,13 +1348,13 @@ select:focus {
   margin: 0 auto 18px;
 }
 .personal-header h1 {
-  font-size: 20px;
+  font-size: var(--font-20);
   letter-spacing: -0.02em;
 }
 .personal-header p {
   margin-top: 4px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .personal-action-error {
   max-width: 1200px;
@@ -1358,7 +1367,7 @@ select:focus {
   min-height: 420px;
   gap: 10px;
   color: var(--muted);
-  font-size: 12px;
+  font-size: var(--font-12);
 }
 .personal-board {
   display: grid;
@@ -1453,7 +1462,7 @@ select:focus {
 }
 .personal-ticket-open h3 {
   overflow: hidden;
-  font-size: 13px;
+  font-size: var(--font-13);
   line-height: 1.35;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1463,7 +1472,7 @@ select:focus {
   border: 1px solid var(--line);
   border-radius: 4px;
   color: var(--muted);
-  font-size: 9px;
+  font-size: var(--font-9);
   font-weight: 700;
   letter-spacing: 0.04em;
   text-transform: uppercase;
@@ -1477,7 +1486,7 @@ select:focus {
   justify-items: center;
   gap: 3px;
   color: var(--faint);
-  font-size: 9px;
+  font-size: var(--font-9);
   font-weight: 700;
 }
 .personal-complete-control input {
@@ -1503,7 +1512,7 @@ select:focus {
   border: 0;
   background: transparent;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 750;
   text-align: left;
 }
@@ -1516,7 +1525,7 @@ select:focus {
 .personal-history-toggle small {
   margin-left: auto;
   color: var(--faint);
-  font: 10px ui-monospace, SFMono-Regular, Menlo, monospace;
+  font: var(--font-10) ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 .personal-history-list {
   display: grid;
@@ -1541,14 +1550,14 @@ select:focus {
 }
 .personal-history-ticket strong {
   overflow: hidden;
-  font-size: 12px;
+  font-size: var(--font-12);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .personal-history-ticket div > span,
 .personal-history-empty {
   color: var(--muted);
-  font-size: 10px;
+  font-size: var(--font-10);
 }
 .personal-history-empty {
   margin: 0;
@@ -1561,7 +1570,7 @@ select:focus {
   display: grid;
   gap: 7px;
   color: var(--muted);
-  font-size: 11px;
+  font-size: var(--font-11);
   font-weight: 700;
 }
 .personal-ticket-form textarea {

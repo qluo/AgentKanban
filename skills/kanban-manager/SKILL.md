@@ -9,57 +9,53 @@ Treat `kanban-manager init` and `$kanban-manager init` as the init command.
 Treat `kanban-manager start` and `$kanban-manager start` as the start command.
 These are skill commands, not commands provided by the Agent Kanban CLI.
 
-## Init command
+## Init and start commands
 
-When the user invokes `kanban-manager init`:
+Both `kanban-manager init` and `kanban-manager start` ensure the shared web
+app is running. Importing a new project reuses that app; it does not require
+another clone of Agent Kanban.
 
-1. Resolve the installation directory from `AGENT_KANBAN_DIR` when it is set;
-   otherwise use `$HOME/Documents/AgentKanban`.
-2. If the directory does not exist, clone
-   `https://github.com/qluo/AgentKanban.git` into it. If it already exists,
-   verify that it is an Agent Kanban checkout; never overwrite, reset, clean,
-   or replace an existing directory.
-3. Verify Node.js 22.13 or newer and npm are available. Stop with the observed
-   versions and a concise remediation when the requirement is not met.
-4. Run `npm ci` in the checkout. Do not start the web app as part of init.
-5. Report the resolved installation directory and tell the user to invoke
-   `kanban-manager start` when they are ready to launch it.
-
-Do not pull or otherwise change an existing checkout during init. If its
-remote does not identify `qluo/AgentKanban`, stop and ask the user to choose a
-different installation directory.
-
-## Start command
-
-When the user invokes `kanban-manager start`:
-
-1. Resolve the checkout using the same rule as init and verify its
-   `package.json` exists.
-2. Check whether `http://127.0.0.1:3210` already serves Agent Kanban. If it
-   does, do not launch a duplicate process; report that the app is running.
-3. Otherwise run `npm run dev` from the checkout, keep the process available
-   for the session, and wait for the ready signal.
-4. Confirm that `http://127.0.0.1:3210` responds, then report the local URL.
-   Never bind the app to a non-loopback address.
-
-If the checkout is missing or dependencies are not installed, stop and direct
-the user to run `kanban-manager init`; do not silently perform init from the
-start command.
+1. First check `http://127.0.0.1:3210` (or the configured loopback `KANBAN_URL`).
+   Verify Agent Kanban identity using its page and `/api/projects` response;
+   an HTTP 200 alone is not sufficient. If it is already running, reuse it and
+   report the URL. Do not clone, install, or launch a duplicate process.
+2. If it is not running, ask the human where their local Agent Kanban checkout
+   is. Reuse a location already supplied in the conversation without asking
+   again. Inspect that location and verify the package and Git remote identify
+   `qluo/AgentKanban`; the project being imported is not the app checkout.
+3. If the human does not know the location or the supplied path is missing,
+   look for an existing checkout in the suggested parent directory,
+   `AGENT_KANBAN_DIR`, and common locations such as `$HOME/AgentKanban`,
+   `$HOME/Documents/AgentKanban`, and `$HOME/Documents/Codex/AgentKanban`.
+   Verify candidates; if several valid checkouts remain, ask which to use.
+   A missing default directory alone never justifies cloning.
+4. Only when no local checkout can be found, clone
+   `https://github.com/qluo/AgentKanban.git` into an unused destination:
+   use the human's chosen path or `AGENT_KANBAN_DIR`, otherwise
+   `$HOME/Documents/AgentKanban`. Never overwrite, reset, clean, or replace
+   an existing directory. Do not pull an existing checkout during startup.
+5. In the resolved checkout, verify Node.js 22.13 or newer and npm. Install
+   dependencies with `npm ci` only when absent or inconsistent with the lockfile.
+   Run `npm run build` when the production build is missing or stale, then
+   `npm start`. Keep the server process available and wait for readiness.
+   Use `npm run dev` only when development mode is explicitly requested.
+6. Confirm the page and `/api/projects` respond as Agent Kanban, then report
+   the URL and resolved checkout. If the port belongs to another app, report
+   the conflict rather than killing it or starting a duplicate. Always bind
+   to loopback. Preserve the existing database and environment configuration.
 
 ## Use the CLI
 
-For board operations, the local server must be running. Resolve the Agent
-Kanban checkout with the same directory rule used by init and start.
+For board operations, reuse the running app and the checkout resolved above.
+If only the server location is known, use its supported API or locate its
+checkout before using the CLI; never clone merely to obtain a CLI.
 
 ```bash
-npm --prefix "$AGENT_KANBAN_DIR" run kanban -- <command>
+npm --prefix "/resolved/path/to/AgentKanban" run kanban -- <command>
 ```
 
-When `AGENT_KANBAN_DIR` is unset, substitute
-`$HOME/Documents/AgentKanban` directly in the command rather than setting a
-persistent environment variable.
-
-Set `KANBAN_URL` only when the user runs the server at a non-default local URL. Never expose the app beyond a loopback address.
+Use the verified checkout path, not an assumed default or the new project's
+path. Set `KANBAN_URL` only for a non-default loopback URL.
 
 ## Follow the project workflow
 
@@ -76,6 +72,20 @@ confirmation error as a request for human action, not something to bypass.
 
 The CLI and database name the Validation column `verification`; the web app
 displays it as **Validation**. Use the CLI's internal name in commands.
+
+## Pause for human review after each ticket
+
+After a Validator moves a ticket to Done, the Tech Lead finishes that ticket's
+focused commit/PR handoff, records the PR or any publishing blocker, and reports
+the changes, validation evidence, and review location to the human. Record
+“Awaiting human review; do not start the next ticket” as the next action and
+end the work session. Do not start or delegate another ticket until the human
+explicitly asks to continue after this handoff. Earlier blanket authorization
+and elapsed time do not satisfy this pause. Keep development sequential across
+tickets so no next ticket is already underway when one reaches Done.
+Implementors stop at Validation handoff; Validators stop after their review.
+This pause does not require a merge or permit reopening Done without a human
+request.
 
 ## Resume work
 
